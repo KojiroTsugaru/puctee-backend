@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>プラン招待</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // テンプレートから埋め込まれた planId, appStoreUrl を取得
+            const planId = "{{ planId }}";
+            const schemeURL = `puctee://plan/${planId}/invite`;
+            const appStoreURL = "{{ app_store_url }}";
+
+            const start = Date.now();
+            // 1) カスタムスキームでアプリ起動を試みる
+            window.location = schemeURL;
+
+            // 2) フォールバック判定（1.2秒後に App Store へ）
+            setTimeout(() => {
+                if (Date.now() - start < 1500) {
+                    window.location = appStoreURL;
+                }
+            }, 1200);
+        });
+    </script>
+</head>
+<body>
+    <h1>プランの招待にようこそ！</h1>
+    <p>しばらくお待ちください…</p>
+</body>
+</html> 
