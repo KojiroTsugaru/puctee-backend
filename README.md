@@ -11,14 +11,14 @@ FastAPIを使用したPucteeのバックエンドAPIサーバー
 
 1. リポジトリをクローン
 ```bash
-git clone https://github.com/yourusername/puctee-backend.git
+git clone git@github.com:KojiroTsugaru/puctee-backend.git
 cd puctee-backend
 ```
 
 2. 仮想環境を作成して有効化
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linuxの場合
+python -m venv .venv
+source .venv/bin/activate  # Linuxの場合
 # または
 .\venv\Scripts\activate  # Windowsの場合
 ```
@@ -49,10 +49,9 @@ uvicorn app.main:app --reload
 ## APIドキュメント
 
 - Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
 
 ## テストの実行
 
 ```bash
-pytest
+./run_tests.sh
 ``` 
