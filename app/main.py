@@ -45,6 +45,3 @@ app.include_router(invite.router, tags=["invite"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to Puctee API"}
-
-# Lambda handler
-handler = Mangum(app) 

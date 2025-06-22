@@ -6,8 +6,10 @@ from typing import List
 
 from app.core.auth import get_current_username
 from app.db.session import get_db
-from app.models import User, FriendInvite
-from app.schemas import User as UserSchema, FriendInvite as FriendInviteSchema, FriendInviteCreate, UserResponse
+from app.models import User
+from app.models import FriendInvite
+from app.schemas import FriendInviteCreate, FriendInvite, UserResponse
+from app.services.push_notification import send_friend_invite_notification
 
 router = APIRouter()
 
@@ -32,7 +34,7 @@ async def read_friends(
     
     return user.friends
 
-@router.post("/friend-invites", response_model=FriendInviteSchema)
+@router.post("/friend-invites", response_model=FriendInvite)
 async def create_friend_invite(
     invite: FriendInviteCreate,
     current_user: str = Depends(get_current_username),
@@ -82,9 +84,23 @@ async def create_friend_invite(
     db.add(db_invite)
     await db.commit()
     await db.refresh(db_invite)
+
+    # Send push notification to receiver
+    if receiver.device_token:
+        success = await send_friend_invite_notification(
+            device_token=receiver.device_token,
+            sender_username=sender.username,
+            invite_id=db_invite.id
+        )
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send push notification"
+            )
+
     return db_invite
 
-@router.get("/friend-invites", response_model=List[FriendInviteSchema])
+@router.get("/friend-invites", response_model=List[FriendInvite])
 async def read_friend_invites(
     current_user: str = Depends(get_current_username),
     db: AsyncSession = Depends(get_db)

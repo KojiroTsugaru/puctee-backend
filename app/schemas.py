@@ -215,3 +215,10 @@ class UserTrustStatsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class ProfileImageResponse(BaseModel):
+    message: str
+    url: str
+    
+    class Config:
+        from_attributes = True

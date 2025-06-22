@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -19,7 +18,6 @@ class Settings(BaseSettings):
 
     # APNs設定
     APNS_SECRET_ARN: str 
-    APNS_AUTH_KEY_PATH: str
     APNS_AUTH_KEY_ID: str
     APNS_TEAM_ID: str
     APNS_BUNDLE_ID: str

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.models import Plan, User
-from app.services.push_notification import push_notification_service
+from app.services.push_notification.notificationClient import notificationClient
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class PlanScheduler:
             # 各参加者に通知を送信
             for participant in participants:
                 if participant.push_token:
-                    await push_notification_service.send_silent_notification(
+                    await notificationClient.send_silent_notification(
                         device_token=participant.push_token,
                         data={
                             "type": "plan_start",

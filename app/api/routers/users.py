@@ -19,9 +19,9 @@ from app.core.auth import (
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import User, UserTrustStats
-from app.schemas import User as UserSchema, UserCreate, Token, UserUpdate, UserResponse, UserTrustStatsResponse
+from app.schemas import ProfileImageResponse, User as UserSchema, UserCreate, Token, UserUpdate, UserResponse, UserTrustStatsResponse
 from app.core.s3 import upload_to_s3
-from app.services.push_notification import push_notification_service
+from app.services.push_notification.notificationClient import notificationClient
 
 router = APIRouter()
 
@@ -276,7 +276,7 @@ async def get_my_trust_stats(
 
     return trust_stats
 
-@router.post("/profile-image")
+@router.post("/profile-image", response_model=ProfileImageResponse)
 async def upload_profile_image(
     file: UploadFile = File(...),
     current_username: User = Depends(get_current_username),
@@ -308,10 +308,10 @@ async def upload_profile_image(
         await db.commit()
         await db.refresh(user)
         
-        return { 
-                "message": "profile image uploaded successfully",
-                "url": image_url
-            }
+        return ProfileImageResponse(
+            message="profile image uploaded successfully",
+            url=image_url
+        )
     except ClientError as e:
         # S3 側のエラー
         await db.rollback()
@@ -356,7 +356,7 @@ async def test_push_notification(
         )
 
     # テスト通知を送信
-    success = await push_notification_service.send_notification(
+    success = await notificationClient.send_notification(
         device_token=current_user_obj.push_token,
         title=title,
         body=body,

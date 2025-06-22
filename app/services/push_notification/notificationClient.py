@@ -8,7 +8,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-class PushNotificationService:
+class notificationClient:
     def __init__(self):
         self.client = None
         self._initialize_client()
@@ -156,6 +156,3 @@ class PushNotificationService:
         except Exception as e:
             logger.error(f"Error sending silent push notification: {str(e)}", exc_info=True)
             return False
-
-# シングルトンインスタンスの作成
-push_notification_service = PushNotificationService() 

@@ -50,5 +50,6 @@ ENV/
 Thumbs.db
 
 # Deployment artifacts
+package/
 deployment_package/
 deployment.zip 
