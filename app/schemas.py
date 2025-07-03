@@ -222,3 +222,8 @@ class ProfileImageResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        
+class PlanListRequest(BaseModel):
+    skip: int = 0
+    limit: int = 20
+    plan_status: List[str] = ["upcoming", "ongoing", "completed", "cancelled"]

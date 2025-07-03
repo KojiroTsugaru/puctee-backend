@@ -13,7 +13,7 @@ from app.services.push_notification import send_friend_invite_notification
 
 router = APIRouter()
 
-@router.get("/", response_model=list[UserResponse])
+@router.get("/list", response_model=list[UserResponse])
 async def read_friends(
     current_user: str = Depends(get_current_username),
     db: AsyncSession = Depends(get_db)

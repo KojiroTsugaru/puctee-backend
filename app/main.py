@@ -38,7 +38,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(friends.router, prefix="/api/friends", tags=["friends"])
-app.include_router(plans_router)
+app.include_router(plans_router, prefix="/api/plans", tags=["plans"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(invite.router, tags=["invite"])
 

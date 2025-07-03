@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Set
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -10,9 +10,8 @@ from jose import JWTError, jwt
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import User, UserTrustStats
+from app.models import User as UserModel, UserTrustStats
 from app.schemas import Token, UserCreate, User as UserSchema, RefreshToken
-from app.core.s3 import upload_to_s3
 import re
 
 # TODO: Simple in-memory blacklist. Replace with Redis or DB in prod.
@@ -65,7 +64,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(select(UserModel).where(UserModel.username == username))
     user = result.scalar_one_or_none()
     if user is None:
         raise credentials_exception
@@ -78,8 +77,8 @@ async def signup(
 ):
     # Check if user already exists
     result = await db.execute(
-        select(User).where(
-            (User.email == user.email) | (User.username == user.username)
+        select(UserModel).where(
+            (UserModel.email == user.email) | (UserModel.username == user.username)
         )
     )
     if result.scalar_one_or_none():
@@ -90,7 +89,7 @@ async def signup(
 
     # Create new user
     hashed_password = get_password_hash(user.password)
-    db_user = User(
+    db_user = UserModel(
         email=user.email,
         display_name=user.display_name,
         username=user.username,
@@ -124,7 +123,7 @@ async def login(
 ):
     # Get user
     result = await db.execute(
-        select(User).where(User.username == form_data.username)
+        select(UserModel).where(UserModel.username == form_data.username)
     )
     user = result.scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -152,7 +151,7 @@ async def login(
 ):
     # Get user
     result = await db.execute(
-        select(User).where(User.email == email)
+        select(UserModel).where(UserModel.email == email)
     )
     user = result.scalar_one_or_none()
     if not user or not verify_password(password, user.hashed_password):
@@ -200,7 +199,7 @@ async def refresh_token(
         )
 
     # 3) Make sure user still exists
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(select(UserModel).where(UserModel.username == username))
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(
@@ -258,7 +257,7 @@ async def validate_username(
     ユーザー名が利用可能かどうかを検証する
     """
     result = await db.execute(
-        select(User).where(User.username == username)
+        select(UserModel).where(UserModel.username == username)
     )
     existing_user = result.scalar_one_or_none()
     
@@ -284,7 +283,7 @@ async def validate_email(
     
     # メールアドレスの重複をチェック（大文字小文字を区別しない）
     result = await db.execute(
-        select(User).where(User.email.ilike(email))
+        select(UserModel).where(UserModel.email.ilike(email))
     )
     existing_user = result.scalar_one_or_none()
     

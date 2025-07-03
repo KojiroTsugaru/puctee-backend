@@ -7,19 +7,14 @@ from datetime import datetime, UTC
 from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import User, Plan
-from app.schemas import Plan as PlanSchema, PlanUpdate, User as UserSchema
+from app.schemas import Plan as PlanSchema, PlanListRequest
+from fastapi import status as http_status
 
 router = APIRouter()
 
-@router.get("/", response_model=List[PlanSchema])
+@router.post("/list", response_model=List[PlanSchema])
 async def read_plans(
-    skip: int = 0,
-    limit: int = 20,
-    status: List[str] = Query(
-        ["upcoming", "ongoing", "completed", "cancelled"],
-        description="Filter plans by status",
-        example=["upcoming", "ongoing"]
-    ),
+    params: PlanListRequest,
     current_user: str = Depends(get_current_username),
     db: AsyncSession = Depends(get_db)
 ):
@@ -30,7 +25,7 @@ async def read_plans(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
@@ -45,12 +40,12 @@ async def read_plans(
         )
         .where(
             Plan.participants.contains(user),
-            Plan.status.in_(status),
+            Plan.status.in_(params.plan_status),
             Plan.start_time > datetime.now(UTC)  # 現在時刻より後の予定のみ
         )
         .order_by(Plan.start_time)  # start_timeで昇順ソート
-        .offset(skip)
-        .limit(limit)
+        .offset(params.skip)
+        .limit(params.limit)
     )
     plans = result.scalars().all()
     return plans
@@ -68,7 +63,7 @@ async def read_plan(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
@@ -82,7 +77,7 @@ async def read_plan(
     plan = result.scalar_one_or_none()
     if not plan:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Plan not found"
         )
     return plan

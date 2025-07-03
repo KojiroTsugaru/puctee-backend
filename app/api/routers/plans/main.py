@@ -8,7 +8,7 @@ from .delete import router as delete_router
 from .invites import router as invites_router
 from .penalties import router as penalties_router
 from .locations import router as locations_router
-from .websocket import router as websocket_router
+from .location_share_ws import router as location_share_ws_router
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ router.include_router(create_router, prefix="")
 router.include_router(read_router, prefix="")
 router.include_router(update_router, prefix="")
 router.include_router(delete_router, prefix="")
-router.include_router(invites_router, prefix="")  # invites_routerは独自のプレフィックスを持っている
+router.include_router(invites_router, prefix="")
 router.include_router(penalties_router, prefix="")
-router.include_router(websocket_router, prefix="")
+router.include_router(location_share_ws_router, prefix="")
 router.include_router(locations_router, prefix="")
