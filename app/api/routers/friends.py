@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from typing import List
 
 from app.core.auth import get_current_username
+from app.db.db_users import get_current_user
 from app.db.session import get_db
 from app.models import User
 from app.models import FriendInvite
@@ -100,28 +101,19 @@ async def create_friend_invite(
 
     return db_invite
 
-@router.get("/friend-invites", response_model=List[FriendInvite])
-async def read_friend_invites(
-    current_user: str = Depends(get_current_username),
-    db: AsyncSession = Depends(get_db)
+@router.get("/friend-invites/received", response_model=List[FriendInvite])
+async def read_received_invites(
+    user: User = Depends(get_current_user),
+    db: AsyncSession  = Depends(get_db),
 ):
-    # Get current user
-    result = await db.execute(
-        select(User).where(User.username == current_user)
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    return user.received_invites
 
-    # Get invites
-    result = await db.execute(
-        select(FriendInvite).where(FriendInvite.receiver_id == user.id)
-    )
-    invites = result.scalars().all()
-    return invites
+
+@router.get("/friend-invites/sent", response_model=List[FriendInvite])
+async def read_sent_invites(
+    user: User = Depends(get_current_user)
+):
+    return user.sent_invites
 
 @router.post("/friend-invites/{invite_id}/accept")
 async def accept_friend_invite(

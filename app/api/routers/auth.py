@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models import User as UserModel, UserTrustStats
 from app.schemas import Token, UserCreate, User as UserSchema, RefreshToken
 import re
+from app.core.auth import create_refresh_token, create_access_token, verify_password, get_password_hash, get_current_username
 
 # TODO: Simple in-memory blacklist. Replace with Redis or DB in prod.
 BLACKLISTED_REFRESH_TOKENS: Set[str] = set()
@@ -20,55 +21,9 @@ BLACKLISTED_REFRESH_TOKENS: Set[str] = set()
 router = APIRouter()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login/username")
 
 BLACKLIST_KEY = "blacklisted_refresh_tokens"
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
-
-def create_refresh_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=30)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> str:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-    
-    result = await db.execute(select(UserModel).where(UserModel.username == username))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise credentials_exception
-    return username
 
 @router.post("/signup", response_model=Token)
 async def signup(
@@ -223,7 +178,7 @@ async def refresh_token(
 @router.post("/logout")
 async def logout(
     token_payload: RefreshToken,
-    current_user: str = Depends(get_current_user),
+    current_user: str = Depends(get_current_username),
     db: AsyncSession = Depends(get_db)
 ):
     """
