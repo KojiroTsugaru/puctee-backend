@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import List
 
 from app.core.auth import get_current_username
 from app.db.db_users import get_current_user
 from app.db.session import get_db
-from app.models import User
-from app.models import FriendInvite
-from app.schemas import FriendInviteCreate, FriendInvite, UserResponse
+from app.models import User, FriendInvite as FriendInviteModel
+from app.schemas import FriendInvite, FriendInviteCreate, UserResponse
 from app.services.push_notification import send_friend_invite_notification
 
 router = APIRouter()
@@ -38,20 +37,9 @@ async def read_friends(
 @router.post("/friend-invites", response_model=FriendInvite)
 async def create_friend_invite(
     invite: FriendInviteCreate,
-    current_user: str = Depends(get_current_username),
+    sender: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get current user
-    result = await db.execute(
-        select(User).where(User.username == current_user)
-    )
-    sender = result.scalar_one_or_none()
-    if not sender:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
     # Get receiver
     result = await db.execute(
         select(User).where(User.id == invite.receiver_id)
@@ -64,21 +52,22 @@ async def create_friend_invite(
         )
 
     # Check if invite already exists
-    result = await db.execute(
-        select(FriendInvite).where(
-            (FriendInvite.sender_id == sender.id) & (FriendInvite.receiver_id == receiver.id) |
-            (FriendInvite.sender_id == receiver.id) & (FriendInvite.receiver_id == sender.id)
+    pending_invite_exists = await db.execute(
+        select(FriendInviteModel).where(
+            FriendInviteModel.status == "pending",
+            FriendInviteModel.sender_id.in_([sender.id, receiver.id]),
+            FriendInviteModel.receiver_id.in_([sender.id, receiver.id]),
+            FriendInviteModel.sender_id != FriendInviteModel.receiver_id
         )
     )
-    existing_invite = result.scalar_one_or_none()
-    if existing_invite:
+    if pending_invite_exists.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Friend invite already exists"
         )
 
     # Create invite
-    db_invite = FriendInvite(
+    db_invite = FriendInviteModel(
         sender_id=sender.id,
         receiver_id=receiver.id
     )
@@ -86,34 +75,74 @@ async def create_friend_invite(
     await db.commit()
     await db.refresh(db_invite)
 
-    # Send push notification to receiver
-    if receiver.device_token:
-        success = await send_friend_invite_notification(
-            device_token=receiver.device_token,
+    # Send push notification if receiver has a device token
+    if receiver.push_token:
+        await send_friend_invite_notification(
+            device_token=receiver.push_token,
             sender_username=sender.username,
             invite_id=db_invite.id
         )
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send push notification"
-            )
 
     return db_invite
 
 @router.get("/friend-invites/received", response_model=List[FriendInvite])
 async def read_received_invites(
-    user: User = Depends(get_current_user),
-    db: AsyncSession  = Depends(get_db),
+    current_user: str = Depends(get_current_username),
+    db: AsyncSession = Depends(get_db),
 ):
-    return user.received_invites
+    # Get current user with friends relationship loaded
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.received_invites))
+        .where(User.username == current_user)
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Get only pending received invites
+    invite_result = await db.execute(
+        select(FriendInviteModel).where(
+            FriendInviteModel.receiver_id == user.id,
+            FriendInviteModel.status == "pending"  # ← pending のみフィルタ
+        )
+    )
+    pending_invites = invite_result.scalars().all()
+    return pending_invites
 
 
 @router.get("/friend-invites/sent", response_model=List[FriendInvite])
 async def read_sent_invites(
-    user: User = Depends(get_current_user)
+    current_user: str = Depends(get_current_username),
+    db: AsyncSession = Depends(get_db)
 ):
-    return user.sent_invites
+    # Get current user with friends relationship loaded
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.sent_invites))
+        .where(User.username == current_user)
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Get only pending sent invites
+    invite_result = await db.execute(
+        select(FriendInviteModel).where(
+            FriendInviteModel.sender_id == user.id,
+            FriendInviteModel.status == "pending"  # ← pending のみフィルタ
+        )
+    )
+    pending_invites = invite_result.scalars().all()
+    return pending_invites
 
 @router.post("/friend-invites/{invite_id}/accept")
 async def accept_friend_invite(
@@ -121,9 +150,11 @@ async def accept_friend_invite(
     current_user: str = Depends(get_current_username),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get current user
+    # Get current user with friends relationship loaded
     result = await db.execute(
-        select(User).where(User.username == current_user)
+        select(User)
+        .options(selectinload(User.friends))
+        .where(User.username == current_user)
     )
     user = result.scalar_one_or_none()
     if not user:
@@ -132,26 +163,28 @@ async def accept_friend_invite(
             detail="User not found"
         )
 
-    # Get invite
-    result = await db.execute(
-        select(FriendInvite).where(
-            FriendInvite.id == invite_id,
-            FriendInvite.receiver_id == user.id,
-            FriendInvite.status == "pending"
+    # Get the invite
+    invite_result = await db.execute(
+        select(FriendInviteModel).where(
+            FriendInviteModel.id == invite_id,
+            FriendInviteModel.receiver_id == user.id,
+            FriendInviteModel.status == "pending"
         )
     )
-    invite = result.scalar_one_or_none()
+    invite = invite_result.scalar_one_or_none()
     if not invite:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Friend invite not found"
         )
 
-    # Get sender
-    result = await db.execute(
-        select(User).where(User.id == invite.sender_id)
+    # Get sender with friends relationship loaded
+    sender_result = await db.execute(
+        select(User)
+        .options(selectinload(User.friends))
+        .where(User.id == invite.sender_id)
     )
-    sender = result.scalar_one_or_none()
+    sender = sender_result.scalar_one_or_none()
     if not sender:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -160,14 +193,16 @@ async def accept_friend_invite(
 
     # Update invite status
     invite.status = "accepted"
-    await db.commit()
+    
+    # Add friendship (bidirectional)
+    if sender not in user.friends:
+        user.friends.append(sender)
+    if user not in sender.friends:
+        sender.friends.append(user)
 
-    # Add friendship
-    user.friends.append(sender)
-    sender.friends.append(user)
     await db.commit()
-
-    return {"message": "Friend invite accepted"}
+    
+    return {"message": "Friend invite accepted successfully"}
 
 @router.post("/friend-invites/{invite_id}/decline")
 async def decline_friend_invite(
@@ -186,15 +221,15 @@ async def decline_friend_invite(
             detail="User not found"
         )
 
-    # Get invite
-    result = await db.execute(
-        select(FriendInvite).where(
-            FriendInvite.id == invite_id,
-            FriendInvite.receiver_id == user.id,
-            FriendInvite.status == "pending"
+    # Get the invite
+    invite_result = await db.execute(
+        select(FriendInviteModel).where(
+            FriendInviteModel.id == invite_id,
+            FriendInviteModel.receiver_id == user.id,
+            FriendInviteModel.status == "pending"
         )
     )
-    invite = result.scalar_one_or_none()
+    invite = invite_result.scalar_one_or_none()
     if not invite:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -205,4 +240,53 @@ async def decline_friend_invite(
     invite.status = "declined"
     await db.commit()
 
-    return {"message": "Friend invite declined"} 
+    return {"message": "Friend invite declined successfully"}
+
+@router.delete("/{friend_id}")
+async def remove_friend(
+    friend_id: int,
+    current_user: str = Depends(get_current_username),
+    db: AsyncSession = Depends(get_db)
+):
+    # Get current user with friends relationship loaded
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.friends))
+        .where(User.username == current_user)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Get friend user with friends relationship loaded
+    friend_result = await db.execute(
+        select(User)
+        .options(selectinload(User.friends))
+        .where(User.id == friend_id)
+    )
+    friend = friend_result.scalar_one_or_none()
+    if not friend:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Friend user not found"
+        )
+
+    # Check if they are actually friends
+    if friend not in user.friends:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Users are not friends"
+        )
+
+    # Remove friendship (bidirectional)
+    if friend in user.friends:
+        user.friends.remove(friend)
+    if user in friend.friends:
+        friend.friends.remove(user)
+
+    await db.commit()
+    
+    return {"message": f"Successfully removed friend (ID: {friend_id}) from friends"}

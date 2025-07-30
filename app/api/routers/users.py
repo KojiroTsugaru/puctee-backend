@@ -130,7 +130,7 @@ async def update_user_me(
     await db.refresh(user)
     return user
 
-@router.get("/search", response_model=List[UserResponse])
+@router.get("/filter", response_model=List[UserResponse])
 async def search_users(
     query: str = Query(..., description="Search query for display_name or username"),
     current_user: str = Depends(get_current_username),
