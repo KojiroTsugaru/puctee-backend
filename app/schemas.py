@@ -149,6 +149,7 @@ class Plan(PlanBase):
     updated_at: Optional[datetime] = None
     participants: List[User] = []
     locations: List[Location] = []
+    invites: List['PlanInvite'] = []
     penalties: List[Penalty] = []
 
     class Config: 
