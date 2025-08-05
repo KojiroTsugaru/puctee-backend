@@ -89,51 +89,6 @@ Run with coverage:
 pytest --cov=app -v
 ```
 
-## 🔧 Development
-
-### Code Quality
-- **Type Hints**: Full type annotation support
-- **Pydantic Models**: Request/response validation with complex schemas
-- **Async/Await**: Full async implementation for database operations
-- **Error Handling**: Comprehensive exception handling and validation
-- **Testing**: Unit tests with pytest and FastAPI TestClient
-
-### Key Implementation Details
-
-#### Advanced SQLAlchemy Patterns
-- **Async ORM**: Non-blocking database operations for better performance
-- **Eager Loading**: Complex relationship loading to prevent N+1 queries
-- **Many-to-Many Relationships**: Bidirectional friend system and plan participants
-- **MissingGreenlet Handling**: Proper async context management
-
-#### Real-time Features
-- **Real-time Notifications**: Push notifications with APNs for invitations, updates, and reminders
-- **Location Services**: GPS-based check-in verification
-- **Trust Scoring**: Gamified reliability system with streak tracking
-
-#### Database Design
-```python
-# Example of complex eager loading
-result = await db.execute(
-    select(Plan)
-    .options(
-        selectinload(Plan.participants),
-        selectinload(Plan.invites).selectinload(PlanInvite.user),
-        selectinload(Plan.locations),
-        selectinload(Plan.penalties)
-    )
-    .where(Plan.participants.contains(user))
-)
-```
-
-## 🌟 Technical Highlights
-
-- **Complex Relationship Management**: Successfully implemented bidirectional friendship system
-- **Async SQLAlchemy Mastery**: Resolved lazy loading issues in async contexts
-- **Real-time Notification System**: Integrated Firebase for reliable push notifications
-- **Location-based Features**: GPS verification system for plan attendance
-- **Gamification Elements**: Trust scoring system to encourage user engagement
-
 ## 📝 License
 
 This project is part of a portfolio showcase. Feel free to use as reference for your own projects.
