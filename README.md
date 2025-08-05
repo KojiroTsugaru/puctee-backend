@@ -77,18 +77,6 @@ flowchart LR
 - **Friends**: `/friends/invite`, `/friends/accept/{invite_id}`, `/friends/{friend_id}`
 - **Plans**: `/plans/`, `/plans/list`, `/plans/{plan_id}/checkin`
 
-### Testing
-
-Run the test suite:
-```bash
-pytest -v
-```
-
-Run with coverage:
-```bash
-pytest --cov=app -v
-```
-
 ## 📝 License
 
 This project is part of a portfolio showcase. Feel free to use as reference for your own projects.
