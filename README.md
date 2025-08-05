@@ -35,7 +35,7 @@ flowchart LR
         end
         
         S3["S3 Bucket (object storage)"]
-        SM["Secrets Manager (DB creds)"]
+        SM["Secrets Manager (credentials)"]
         CW["CloudWatch Logs & Metrics"]
     end
 
