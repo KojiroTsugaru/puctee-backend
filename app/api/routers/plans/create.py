@@ -6,10 +6,11 @@ from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import User, Plan, Location, Penalty, PlanInvite
 from app.schemas import Plan as PlanSchema, PlanCreate
+from app.services.push_notification import send_plan_invite_notification
 
 router = APIRouter()
 
-@router.post("/create", response_model=PlanSchema)
+@router.post("/", response_model=PlanSchema)
 async def create_plan(
     plan: PlanCreate,
     current_user: str = Depends(get_current_username),
@@ -72,5 +73,15 @@ async def create_plan(
         .where(Plan.id == db_plan.id)
     )
     full_plan: Plan = result.scalar_one()
+    
+    # 7) プラン招待通知を送信
+    for invite in full_plan.invites:
+        other = await db.get(User, invite.user_id)
+        if other and other.push_token:
+            await send_plan_invite_notification(
+                device_token=other.push_token,
+                title="New Plan Invitation",
+                body=f"{user.display_name} invited you to a new plan: {full_plan.title}"
+            )
 
     return full_plan
