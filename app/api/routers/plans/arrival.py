@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 router = APIRouter()
 
-@router.post("/check-arrival", response_model=LocationCheckResponse)
+@router.post("/arrival", response_model=LocationCheckResponse)
 async def check_arrival(
     location: LocationCheck,
     current_user: str = Depends(get_current_username),

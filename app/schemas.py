@@ -138,6 +138,7 @@ class PlanCreate(PlanBase):
     participants: Optional[List[int]] = None # user id of participants
 
 class PlanUpdate(PlanBase):
+    status: Optional[str] = None
     penalty: Optional[PenaltyCreate] = None
     location: LocationCreate
     participants: Optional[List[int]] = None # user id of participants
