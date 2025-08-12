@@ -19,10 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 既存のレコードのtrust_levelを60に更新
+    # Update trust_level of existing records to 60
     op.execute("UPDATE user_trust_stats SET trust_level = 60.0 WHERE trust_level = 50.0")
     
-    # デフォルト値を60に変更
+    # Change default value to 60
     op.alter_column('user_trust_stats', 'trust_level',
                     existing_type=sa.Float(),
                     server_default='60.0',
@@ -30,10 +30,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 既存のレコードのtrust_levelを50に戻す
+    # Revert trust_level of existing records back to 50
     op.execute("UPDATE user_trust_stats SET trust_level = 50.0 WHERE trust_level = 60.0")
     
-    # デフォルト値を50に戻す
+    # Revert default value back to 50
     op.alter_column('user_trust_stats', 'trust_level',
                     existing_type=sa.Float(),
                     server_default='50.0',

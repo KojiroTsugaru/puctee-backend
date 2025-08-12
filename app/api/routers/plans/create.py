@@ -36,7 +36,7 @@ async def create_plan(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        # 1) 作成者取得
+        # 1) Get creator
         result = await db.execute(select(User).where(User.username == current_user))
         user: User = result.scalar_one_or_none()
         if not user:
@@ -44,7 +44,7 @@ async def create_plan(
             logger.error(error_msg)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
-        # 2) Plan レコード作成
+        # 2) Create Plan record
         db_plan = Plan(title=plan.title, start_time=plan.start_time)
         db_plan.participants.append(user)
         db.add(db_plan)
@@ -52,7 +52,7 @@ async def create_plan(
         
         log_operation("plan_created", {"title": plan.title, "start_time": plan.start_time}, user.id, db_plan.id)
 
-        # 3) 他の参加者を招待
+        # 3) Invite other participants
         if plan.participants:
             other_participant_ids = set(pid for pid in plan.participants if pid != user.id)
             log_operation("processing_participants", {"count": len(other_participant_ids)}, user.id, db_plan.id)
@@ -68,7 +68,7 @@ async def create_plan(
                     logger.error(f"Error inviting user {uid}: {str(e)}", exc_info=True)
                     continue
 
-        # 4) Location, Penalty の追加
+        # 4) Add Location and Penalty
         try:
             loc = plan.location
             db.add(Location(
@@ -90,11 +90,11 @@ async def create_plan(
                 ))
                 log_operation("penalty_added", {"content": pen.content}, user.id, db_plan.id)
 
-            # 5) コミット
+            # 5) Commit
             await db.commit()
             log_operation("db_commit_success", {}, user.id, db_plan.id)
 
-            # 6) リレーションをまとめてロード
+            # 6) Load relations together
             result = await db.execute(
                 select(Plan)
                 .options(
@@ -107,7 +107,7 @@ async def create_plan(
             )
             full_plan: Plan = result.scalar_one()
             
-            # 7) プラン招待通知を送信
+            # 7) Send plan invitation notifications
             notification_count = 0
             for invite in full_plan.invites:
                 try:

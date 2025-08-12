@@ -49,7 +49,7 @@ async def get_current_username(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    # ユーザーネームのみ返す
+    # Return only username
     return username 
 
 async def get_current_user_ws(websocket: WebSocket) -> Optional[User]:

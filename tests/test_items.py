@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.mark.asyncio
 async def test_create_item(client: AsyncClient):
-    # ユーザーを作成してログイン
+    # Create user and login
     await client.post(
         "/api/v1/users/",
         json={
@@ -22,7 +22,7 @@ async def test_create_item(client: AsyncClient):
     )
     token = login_response.json()["access_token"]
     
-    # アイテムを作成
+    # Create item
     response = await client.post(
         "/api/v1/items/",
         headers={"Authorization": f"Bearer {token}"},
@@ -42,7 +42,7 @@ async def test_create_item(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_read_items(client: AsyncClient):
-    # ユーザーを作成してログイン
+    # Create user and login
     await client.post(
         "/api/v1/users/",
         json={
@@ -60,7 +60,7 @@ async def test_read_items(client: AsyncClient):
     )
     token = login_response.json()["access_token"]
     
-    # アイテムを作成
+    # Create item
     await client.post(
         "/api/v1/items/",
         headers={"Authorization": f"Bearer {token}"},
@@ -80,7 +80,7 @@ async def test_read_items(client: AsyncClient):
         }
     )
     
-    # アイテム一覧を取得
+    # Get item list
     response = await client.get(
         "/api/v1/items/",
         headers={"Authorization": f"Bearer {token}"}
@@ -93,7 +93,7 @@ async def test_read_items(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_read_item(client: AsyncClient):
-    # ユーザーを作成してログイン
+    # Create user and login
     await client.post(
         "/api/v1/users/",
         json={
@@ -111,7 +111,7 @@ async def test_read_item(client: AsyncClient):
     )
     token = login_response.json()["access_token"]
     
-    # アイテムを作成
+    # Create item
     create_response = await client.post(
         "/api/v1/items/",
         headers={"Authorization": f"Bearer {token}"},
@@ -123,7 +123,7 @@ async def test_read_item(client: AsyncClient):
     )
     item_id = create_response.json()["id"]
     
-    # アイテムを取得
+    # Get item
     response = await client.get(
         f"/api/v1/items/{item_id}",
         headers={"Authorization": f"Bearer {token}"}
@@ -136,7 +136,7 @@ async def test_read_item(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_update_item(client: AsyncClient):
-    # ユーザーを作成してログイン
+    # Create user and login
     await client.post(
         "/api/v1/users/",
         json={
@@ -154,7 +154,7 @@ async def test_update_item(client: AsyncClient):
     )
     token = login_response.json()["access_token"]
     
-    # アイテムを作成
+    # Create item
     create_response = await client.post(
         "/api/v1/items/",
         headers={"Authorization": f"Bearer {token}"},
@@ -166,7 +166,7 @@ async def test_update_item(client: AsyncClient):
     )
     item_id = create_response.json()["id"]
     
-    # アイテムを更新
+    # Update item
     response = await client.put(
         f"/api/v1/items/{item_id}",
         headers={"Authorization": f"Bearer {token}"},
@@ -184,7 +184,7 @@ async def test_update_item(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_delete_item(client: AsyncClient):
-    # ユーザーを作成してログイン
+    # Create user and login
     await client.post(
         "/api/v1/users/",
         json={
@@ -202,7 +202,7 @@ async def test_delete_item(client: AsyncClient):
     )
     token = login_response.json()["access_token"]
     
-    # アイテムを作成
+    # Create item
     create_response = await client.post(
         "/api/v1/items/",
         headers={"Authorization": f"Bearer {token}"},
@@ -214,14 +214,14 @@ async def test_delete_item(client: AsyncClient):
     )
     item_id = create_response.json()["id"]
     
-    # アイテムを削除
+    # Delete item
     response = await client.delete(
         f"/api/v1/items/{item_id}",
         headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 200
     
-    # 削除されたアイテムを取得しようとする
+    # Try to get deleted item
     get_response = await client.get(
         f"/api/v1/items/{item_id}",
         headers={"Authorization": f"Bearer {token}"}

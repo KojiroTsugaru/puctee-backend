@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 if _IS_LAMBDA:
-    # Lambda 実行ロールの権限を使う（キーを渡さない）
+    # Use Lambda execution role permissions (don't pass keys)
     s3_client = boto3.client(
         "s3",
         region_name=settings.AWS_REGION,
     )
 else:
-    # ローカル開発時は settings 経由で明示的に渡す
+    # For local development, pass explicitly via settings
     s3_client = boto3.client(
         "s3",
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -32,34 +32,34 @@ else:
 
 async def compress_image(file: UploadFile, max_size=(800,800)) -> bytes:
     
-    # ファイルをまるごと読む
+    # Read entire file
     raw = await file.read()
     
-    # Pillow の重たい処理をスレッドプールで実行
+    # Execute heavy Pillow processing in thread pool
     def _sync_compress(data: bytes) -> bytes:
         img = Image.open(io.BytesIO(data))
         img.thumbnail(max_size, Image.Resampling.LANCZOS)
         buf = io.BytesIO()
-        # JPEG・PNG 自動判別させたいなら img.format を使っても OK
+        # Use img.format for automatic JPEG/PNG detection if desired
         img.save(buf, format="JPEG", quality=85, optimize=True)
         return buf.getvalue()
 
     return await to_thread.run_sync(_sync_compress, raw)
 
 async def upload_to_s3(file: UploadFile, user_id: int) -> str:
-    """画像をS3にアップロードする"""
+    """Upload image to S3"""
     try:
-        # 画像を圧縮
+        # Compress image
         compressed_image = await compress_image(file)
         
-        # S3 キー作成
+        # Create S3 key
         file_extension = file.filename.split('.')[-1].lower()
         s3_key = f"profile_images/{user_id}_{file.filename}"
         
-        # クライアントから来た Content-Type を優先、それ以外は拡張子から推測
+        # Prioritize Content-Type from client, otherwise infer from extension
         content_type = file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
         
-        # S3にアップロード
+        # Upload to S3
         await to_thread.run_sync(lambda: s3_client.put_object(
             Bucket=settings.AWS_S3_BUCKET,
             Key=s3_key,

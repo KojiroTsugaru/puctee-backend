@@ -41,9 +41,9 @@ async def read_plans(
         .where(
             Plan.participants.contains(user),
             Plan.status.in_(params.plan_status),
-            Plan.start_time > datetime.now(UTC)  # 現在時刻より後の予定のみ
+            Plan.start_time > datetime.now(UTC)  # Only plans after current time
         )
-        .order_by(Plan.start_time)  # start_timeで昇順ソート
+        .order_by(Plan.start_time)  # Sort by start_time in ascending order
         .offset(params.skip)
         .limit(params.limit)
     )

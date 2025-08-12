@@ -1,20 +1,20 @@
 from app.services.push_notification.notificationClient import notificationClient
 
-# シングルトンインスタンスの作成
+# Create singleton instance
 push_notification_client = notificationClient()
 
-# フレンド招待通知を送信する
+# Send friend invite notification
 async def send_friend_invite_notification(device_token: str, sender_username: str, invite_id: int) -> bool:
     """
-    フレンド招待通知を送信する
+    Send friend invite notification
     
     Args:
-        device_token (str): デバイストークン
-        sender_username (str): 招待を送信したユーザーのユーザー名
-        invite_id (int): 招待ID
+        device_token (str): Device token
+        sender_username (str): Username of the user who sent the invite
+        invite_id (int): Invite ID
         
     Returns:
-        bool: 送信成功時はTrue、失敗時はFalse
+        bool: True on successful send, False on failure
     """
     return await push_notification_client.send_notification(
         device_token=device_token,
@@ -26,18 +26,18 @@ async def send_friend_invite_notification(device_token: str, sender_username: st
         }
     )
 
-# プラン招待通知を送信する
+# Send plan invite notification
 async def send_plan_invite_notification(device_token: str, title: str, body: str) -> bool:
     """
-    プラン招待通知を送信する
+    Send plan invite notification
     
     Args:
-        device_token (str): デバイストークン
-        title (str): 通知のタイトル
-        body (str): 通知の本文
+        device_token (str): Device token
+        title (str): Notification title
+        body (str): Notification body
         
     Returns:
-        bool: 送信成功時はTrue、失敗時はFalse
+        bool: True on successful send, False on failure
     """
     return await push_notification_client.send_notification(
         device_token=device_token,

@@ -5,10 +5,10 @@ from app.core.config import settings
 
 url = settings.DATABASE_URL
 if "localhost" in url:
-    # ローカルは SSL を無効化
+    # Disable SSL for local
     connect_args = { "ssl": False }
 else:
-    # リモートはちゃんと証明書検証あり
+    # Remote has proper certificate validation
     ssl_context = create_default_context(cafile=settings.RDS_CA_BUNDLE)
     connect_args = { "ssl": ssl_context }
 

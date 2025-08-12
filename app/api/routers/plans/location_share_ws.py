@@ -1,5 +1,5 @@
-# このファイルはplan参加者のリアルタイム位置情報共有WebSocketエンドポイントを実装しています。
-# /ws/plan/{plan_id} でplanごとにルームを作り、参加者全員の位置情報をリアルタイムで共有します。
+# This file implements a real-time location sharing WebSocket endpoint for plan participants.
+# Creates a room for each plan at /ws/plan/{plan_id} and shares all participants' location information in real-time.
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Dict, List, Any
 from app.core.auth import get_current_user_ws
@@ -43,14 +43,14 @@ manager = PlanConnectionManager()
 async def plan_location_ws(websocket: WebSocket, plan_id: int):
     db = AsyncSessionLocal()
     try:
-        # ユーザー認証
+        # User authentication
         user = await get_current_user_ws(websocket)
         if not user:
             await websocket.close(code=4001)
             await db.close()
             return
 
-        # plan存在＆参加者かチェック
+        # Check if plan exists and user is a participant
         result = await db.execute(
             select(Plan).where(Plan.id == plan_id)
         )
@@ -66,15 +66,15 @@ async def plan_location_ws(websocket: WebSocket, plan_id: int):
         try:
             while True:
                 data = await websocket.receive_text()
-                # 位置情報データをバリデート＆ブロードキャスト
+                # Validate and broadcast location data
                 try:
                     payload = json.loads(data)
-                    # 必須: latitude, longitude
+                    # Required: latitude, longitude
                     latitude = float(payload["latitude"])
                     longitude = float(payload["longitude"])
-                    # 任意: name
+                    # Optional: name
                     name = payload.get("name", "")
-                    # user_idはサーバー側で付与
+                    # user_id is assigned by server
                     location_message = json.dumps({
                         "user_id": user.id,
                         "display_name": user.display_name,

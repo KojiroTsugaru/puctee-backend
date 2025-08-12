@@ -26,7 +26,7 @@ def upgrade() -> None:
     op.execute(
         "UPDATE locations SET name = '' WHERE name IS NULL"
     )
-    # 3) NOT NULL 制約を追加
+    # 3) Add NOT NULL constraint
     op.alter_column(
         'locations',
         'name',

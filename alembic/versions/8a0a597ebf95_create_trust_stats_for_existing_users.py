@@ -20,19 +20,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 既存のユーザーに対してUserTrustStatsを作成
+    # Create UserTrustStats for existing users
     bind = op.get_bind()
     session = Session(bind=bind)
     
-    # すべてのユーザーを取得
+    # Get all users
     users = session.query(User).all()
     
-    # 各ユーザーに対してUserTrustStatsを作成
+    # Create UserTrustStats for each user
     for user in users:
-        # 既にUserTrustStatsが存在するか確認
+        # Check if UserTrustStats already exists
         existing_stats = session.query(UserTrustStats).filter_by(user_id=user.id).first()
         if not existing_stats:
-            # UserTrustStatsが存在しない場合は作成
+            # Create UserTrustStats if it doesn't exist
             trust_stats = UserTrustStats(user_id=user.id)
             session.add(trust_stats)
     
@@ -40,5 +40,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # UserTrustStatsを削除
+    # Delete UserTrustStats
     op.execute('DELETE FROM user_trust_stats')

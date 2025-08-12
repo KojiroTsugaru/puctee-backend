@@ -155,7 +155,7 @@ class Plan(PlanBase):
 
     class Config: 
         from_attributes = True
-        # すべての datetime を秒単位の ISO8601 (no fractional) で出力
+        # Output all datetime in seconds-precision ISO8601 (no fractional)
         json_encoders = {
             datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%SZ")
         }

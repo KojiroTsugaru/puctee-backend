@@ -19,6 +19,6 @@ class RedisClient:
 
 @lru_cache()
 def get_redis_client() -> RedisClient:
-    # 環境変数から Redis の URL を取得
+    # Get Redis URL from environment variables
     return RedisClient(url=settings.REDIS_URL)
     

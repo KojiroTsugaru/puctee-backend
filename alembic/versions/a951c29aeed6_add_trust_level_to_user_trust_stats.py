@@ -19,10 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # trust_levelカラムを追加（デフォルト値50.0）
+    # Add trust_level column (default value 50.0)
     op.add_column('user_trust_stats', sa.Column('trust_level', sa.Float(), nullable=False, server_default='50.0'))
 
 
 def downgrade() -> None:
-    # trust_levelカラムを削除
+    # Delete trust_level column
     op.drop_column('user_trust_stats', 'trust_level')

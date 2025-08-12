@@ -17,11 +17,11 @@ async def check_arrival(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    単独到着チェック用エンドポイント
-    ユーザーの現在位置とプランの目的地を比較して到着判定を行う
+    Endpoint for individual arrival check
+    Compare user's current location with plan destination to determine arrival
     """
     try:
-        # 現在のユーザーを取得
+        # Get current user
         result = await db.execute(
             select(User).where(User.username == current_user)
         )
@@ -32,7 +32,7 @@ async def check_arrival(
                 detail="User not found"
             )
 
-        # プランを取得（場所情報も含めて）
+        # Get plan (including location information)
         result = await db.execute(
             select(Plan)
             .options(selectinload(Plan.locations))
@@ -45,32 +45,32 @@ async def check_arrival(
                 detail="Plan not found"
             )
 
-        # ユーザーがプランの参加者かチェック
+        # Check if user is a participant in the plan
         if user not in plan.participants:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a participant of this plan"
             )
 
-        destination = plan.locations[0]  # 最初の場所を目的地として使用
+        destination = plan.locations[0]  # Use first location as destination
 
-        # 到着判定（例：100メートル以内なら到着と判定）
+        # Arrival determination (e.g., consider arrived if within 100 meters)
         distance = calculate_distance(
             location.latitude,
             location.longitude,
             destination.latitude,
             destination.longitude
         )
-        is_arrived = distance <= 0.03  # 30メートル以内
+        is_arrived = distance <= 0.03  # Within 30 meters
         
-        # 現在時刻と開始時刻を比較
+        # Compare current time with start time
         current_time = datetime.now(timezone.utc)
         time_diff = (current_time - plan.start_time).total_seconds()
         
-        # 統計情報の更新
+        # Update statistics
         await update_trust_stats(user, plan, is_arrived, time_diff, db)
             
-        # 変更をデータベースに保存
+        # Save changes to database
         await db.commit()
         await db.refresh(plan)
 
@@ -79,7 +79,7 @@ async def check_arrival(
             distance=distance
         )
     except Exception as e:
-        # エラーが発生した場合はロールバック
+        # Rollback if error occurs
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -94,16 +94,16 @@ async def update_trust_stats(
     db: AsyncSession
 ) -> None:
     """
-    ユーザーの信頼度統計情報を更新する
+    Update user's trust statistics
     
     Args:
-        user: ユーザーオブジェクト
-        plan: プランオブジェクト
-        is_arrived: 到着したかどうか
-        time_diff: 開始時刻との時間差（秒）
-        db: データベースセッション
+        user: User object
+        plan: Plan object
+        is_arrived: Whether arrived or not
+        time_diff: Time difference from start time (seconds)
+        db: Database session
     """
-    # ユーザーの信頼度統計を取得
+    # Get user's trust statistics
     result = await db.execute(
         select(UserTrustStats).where(UserTrustStats.user_id == user.id)
     )
@@ -114,16 +114,16 @@ async def update_trust_stats(
             detail="User trust stats not found"
         )
 
-    # 到着状態に応じて統計情報を更新
+    # Update statistics based on arrival status
     if is_arrived:
-        if time_diff <= 0:  # 開始時刻前
+        if time_diff <= 0:  # Before start time
             plan.arrival_status = "on_time"
             trust_stats.on_time_streak += 1
             trust_stats.best_on_time_streak = max(
                 trust_stats.best_on_time_streak,
                 trust_stats.on_time_streak
             )
-        else:  # 開始時刻後
+        else:  # After start time
             plan.arrival_status = "late"
             trust_stats.late_plans += 1
             trust_stats.on_time_streak = 0
@@ -131,18 +131,18 @@ async def update_trust_stats(
         plan.arrival_status = "not_arrived"
         trust_stats.on_time_streak = 0
 
-    # 共通の統計情報更新
+    # Common statistics update
     trust_stats.total_plans += 1
     trust_stats.last_arrival_status = plan.arrival_status
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
-    2点間の距離を計算 - キロメートル単位
-    ハーバーサイン公式を使用
+    Calculate distance between two points - in kilometers
+    Using Haversine formula
     """
     from math import radians, sin, cos, sqrt, atan2
 
-    R = 6371  # 地球の半径（キロメートル）
+    R = 6371  # Earth's radius (kilometers)
 
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1

@@ -50,7 +50,7 @@ async def update_plan(
     
     # Handle relationships separately
     if 'participants' in update_data and update_data['participants'] is not None:
-        # 参加者の更新（List[int]として送られてくる）
+        # Update participants (sent as List[int])
         plan.participants = []
         result = await db.execute(
             select(User).where(User.id.in_(update_data['participants']))
@@ -59,7 +59,7 @@ async def update_plan(
         plan.participants.extend(users)
 
     if 'location' in update_data:
-        # 場所の更新（LocationCreateとして送られてくる）
+        # Update location (sent as LocationCreate)
         plan.locations = []
         location_data = update_data['location']
         location = Location(
@@ -72,7 +72,7 @@ async def update_plan(
         plan.locations.append(location)
 
     if 'penalty' in update_data and update_data['penalty'] is not None:
-        # ペナルティの更新（Optional[PenaltyCreate]として送られてくる）
+        # Update penalty (sent as Optional[PenaltyCreate])
         plan.penalties = []
         penalty_data = update_data['penalty']
         penalty = Penalty(
@@ -83,7 +83,7 @@ async def update_plan(
         )
         plan.penalties.append(penalty)
 
-    # その他のフィールドの更新
+    # Update other fields
     for field, value in update_data.items():
         if field not in ['participants', 'location', 'penalty']:
             setattr(plan, field, value)

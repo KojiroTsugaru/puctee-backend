@@ -30,7 +30,7 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    # ユーザーをデータベースから取得
+    # Get user from database
     result = await db.execute(
         select(User).where(User.username == form_data.username)
     )
@@ -54,7 +54,7 @@ async def create_user(
     user: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    # ユーザー名とメールアドレスの重複チェック
+    # Check for username and email address duplication
     result = await db.execute(
         select(User).where(
             (User.username == user.username) | (User.email == user.email)
@@ -67,7 +67,7 @@ async def create_user(
             detail="Username or email already registered"
         )
 
-    # ユーザーの作成
+    # Create user
     db_user = User(
         email=user.email,
         username=user.username,
@@ -75,9 +75,9 @@ async def create_user(
         hashed_password=user.hashed_password
     )
     db.add(db_user)
-    await db.flush()  # IDを取得するためにflush
+    await db.flush()  # Flush to get ID
 
-    # UserTrustStatsの作成
+    # Create UserTrustStats
     trust_stats = UserTrustStats(user_id=db_user.id)
     db.add(trust_stats)
     
@@ -92,7 +92,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    現在のユーザー情報を取得
+    Get current user information
     """
     result = await db.execute(
         select(User)
@@ -195,7 +195,7 @@ async def search_users(
         return [*friends, *other_users]  # Use list unpacking to ensure it's a list
 
     except Exception as e:
-        # エラーの詳細をログに記録
+        # Log error details
         print(f"Error in search_users: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -226,7 +226,7 @@ async def update_push_token(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    ユーザーのプッシュトークンを更新する
+    Update user's push token
     """
     # Verify the current user is updating their own push token
     result = await db.execute(
@@ -250,9 +250,9 @@ async def get_my_trust_stats(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    現在のユーザーの信頼度統計を取得する
+    Get current user's trust statistics
     """
-    # ユーザーを取得
+    # Get user
     result = await db.execute(
         select(User).where(User.username == current_username)
     )
@@ -263,7 +263,7 @@ async def get_my_trust_stats(
             detail="User not found"
         )
 
-    # 信頼度統計を取得
+    # Get trust statistics
     result = await db.execute(
         select(UserTrustStats).where(UserTrustStats.user_id == user.id)
     )
@@ -283,7 +283,7 @@ async def upload_profile_image(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    プロフィール画像をアップロードする
+    Upload profile image
     """
     
     if not file.content_type.startswith('image/'):
@@ -300,10 +300,10 @@ async def upload_profile_image(
         )
     
     try:
-        # S3にアップロード
+        # Upload to S3
         image_url = await upload_to_s3(file, user.id)
         
-        # ユーザーのプロフィール画像URLを更新
+        # Update user's profile image URL
         user.profile_image_url = image_url
         await db.commit()
         await db.refresh(user)
@@ -313,19 +313,19 @@ async def upload_profile_image(
             url=image_url
         )
     except ClientError as e:
-        # S3 側のエラー
+        # S3 side error
         await db.rollback()
         logger.error("S3 upload failed", exc_info=e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="S3 へのアップロードに失敗しました"
+            detail="Failed to upload to S3"
         )
     except Exception as e:
         await db.rollback()
         logger.error("Unexpected error in profile-image endpoint", exc_info=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="サーバーエラーが発生しました"
+            detail="Server error occurred"
         )
 
 @router.post("/me/test-push")
@@ -336,9 +336,9 @@ async def test_push_notification(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    現在のユーザーにテスト用のプッシュ通知を送信する
+    Send test push notification to current user
     """
-    # 現在のユーザーを取得
+    # Get current user
     result = await db.execute(
         select(User).where(User.username == current_user)
     )
@@ -355,7 +355,7 @@ async def test_push_notification(
             detail="User has no push token"
         )
 
-    # テスト通知を送信
+    # Send test notification
     success = await notificationClient.send_notification(
         device_token=current_user_obj.push_token,
         title=title,

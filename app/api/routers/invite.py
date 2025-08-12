@@ -9,11 +9,11 @@ templates = Jinja2Templates(directory="templates")
 async def invite(request: Request, planId: str):
     """
     https://your-domain.com/invite?planId=12345
-    のようにアクセスされたら、以下の HTML（テンプレート）を返す。
+    When accessed like this, return the following HTML (template).
     """
     return templates.TemplateResponse("invite.html", {
         "request": request,
         "planId": planId,
-        # App Store の自分のアプリページ URL
-        "app_store_url": "https://apps.apple.com/jp/app/あなたのアプリID"
+        # Your app page URL on App Store
+        "app_store_url": "https://apps.apple.com/jp/app/your-app-id"
     }) 

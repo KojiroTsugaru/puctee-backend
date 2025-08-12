@@ -12,7 +12,7 @@ from pathlib import Path
 #             └── debug
 #                 └── reset_db.py  <- __file__
 #
-# __file__ の４つ上がプロジェクトルートになる
+# Four levels up from __file__ is the project root
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
@@ -22,19 +22,19 @@ import app.models
 
 async def reset_db():
     """
-    ⚠️ 開発／テスト環境専用 ⚠️
-    全テーブルを DROP → CREATE します。
+    ⚠️ Development/Test Environment Only ⚠️
+    DROP → CREATE all tables.
     """
     async with engine.begin() as conn:
-        # public スキーマごと消して
+        # Drop the entire public schema
         await conn.execute(text("DROP SCHEMA public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
-        # そこに全テーブルを再作成
+        # Recreate all tables there
         await conn.run_sync(Base.metadata.create_all)
     print("✅ Database has been reset!")
 
 if __name__ == "__main__":
-    # 環境変数読み込み（dotenv 等を使っている場合はここで読み込む）
+    # Load environment variables (load here if using dotenv etc.)
     # from dotenv import load_dotenv
     # load_dotenv()
 

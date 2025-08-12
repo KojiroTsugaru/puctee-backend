@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str
 
-    # APNs設定
+    # APNs settings
     APNS_SECRET_ARN: str 
     APNS_AUTH_KEY_ID: str
     APNS_TEAM_ID: str

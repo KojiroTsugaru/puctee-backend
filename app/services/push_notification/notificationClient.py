@@ -15,22 +15,22 @@ class notificationClient:
 
     def _initialize_client(self):
         try:
-            # AWS Secrets Managerから認証キーを取得
+            # Get authentication key from AWS Secrets Manager
             sm = boto3.client("secretsmanager")
             resp = sm.get_secret_value(SecretId=settings.APNS_SECRET_ARN)
             key_pem = resp["SecretString"]
             
-            # Lambda の /tmp に一時的に書き出し
+            # Temporarily write to Lambda's /tmp directory
             with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".p8", delete=False) as tf:
                 tf.write(key_pem.encode())
                 key_path = tf.name
 
-            # SSLコンテキストの設定
+            # SSL context configuration
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
 
-            # APNsクライアントの初期化
+            # Initialize APNs client
             self.client = APNs(
                 key=key_path,
                 key_id=settings.APNS_AUTH_KEY_ID,
@@ -55,18 +55,18 @@ class notificationClient:
         badge: int = None
     ) -> bool:
         """
-        プッシュ通知を送信する
+        Send push notification
         
         Args:
-            device_token (str): デバイストークン
-            title (str): 通知のタイトル
-            body (str): 通知の本文
-            data (dict, optional): 追加データ
-            sound (str, optional): 通知音
-            badge (int, optional): バッジ数
+            device_token (str): Device token
+            title (str): Notification title
+            body (str): Notification body
+            data (dict, optional): Additional data
+            sound (str, optional): Notification sound
+            badge (int, optional): Badge count
             
         Returns:
-            bool: 送信成功時はTrue、失敗時はFalse
+            bool: True on successful send, False on failure
         """
         try:
             if not self.client:
@@ -75,7 +75,7 @@ class notificationClient:
             logger.info(f"Sending notification to device token: {device_token}")
             logger.info(f"Notification content - title: {title}, body: {body}")
 
-            # 通知リクエストの作成
+            # Create notification request
             request = NotificationRequest(
                 device_token=device_token,
                 message={
@@ -93,7 +93,7 @@ class notificationClient:
                 push_type=PushType.ALERT
             )
 
-            # 通知の送信
+            # Send notification
             logger.info("Sending notification request...")
             response = await self.client.send_notification(request)
             
@@ -114,14 +114,14 @@ class notificationClient:
         data: dict = None
     ) -> bool:
         """
-        サイレントプッシュ通知を送信する
+        Send silent push notification
         
         Args:
-            device_token (str): デバイストークン
-            data (dict, optional): 追加データ
+            device_token (str): Device token
+            data (dict, optional): Additional data
             
         Returns:
-            bool: 送信成功時はTrue、失敗時はFalse
+            bool: True on successful send, False on failure
         """
         try:
             if not self.client:
@@ -129,7 +129,7 @@ class notificationClient:
 
             logger.info(f"Sending silent notification to device token: {device_token}")
 
-            # サイレント通知リクエストの作成
+            # Create silent notification request
             request = NotificationRequest(
                 device_token=device_token,
                 message={
@@ -142,7 +142,7 @@ class notificationClient:
                 push_type=PushType.BACKGROUND
             )
 
-            # 通知の送信
+            # Send notification
             logger.info("Sending silent notification request...")
             response = await self.client.send_notification(request)
             

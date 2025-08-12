@@ -12,7 +12,7 @@ from .location_share_ws import router as location_share_ws_router
 
 router = APIRouter()
 
-# 各ルーターを適切なプレフィックスでマウント
+# Mount each router with appropriate prefix
 router.include_router(arrival_router, prefix="")
 router.include_router(create_router, prefix="")
 router.include_router(read_router, prefix="")

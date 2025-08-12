@@ -25,7 +25,7 @@ async def test_create_user(client: AsyncGenerator[AsyncClient, None]):
 @pytest.mark.asyncio
 async def test_create_user_duplicate_username(client: AsyncGenerator[AsyncClient, None]):
     async for c in client:
-        # 最初のユーザーを作成
+        # Create the first user
         await c.post(
             "/api/v1/users/",
             json={
@@ -35,7 +35,7 @@ async def test_create_user_duplicate_username(client: AsyncGenerator[AsyncClient
             }
         )
         
-        # 同じユーザー名で再度作成を試みる
+        # Try to create again with the same username
         response = await c.post(
             "/api/v1/users/",
             json={
@@ -50,7 +50,7 @@ async def test_create_user_duplicate_username(client: AsyncGenerator[AsyncClient
 @pytest.mark.asyncio
 async def test_login(client: AsyncGenerator[AsyncClient, None]):
     async for c in client:
-        # ユーザーを作成
+        # Create user
         await c.post(
             "/api/v1/users/",
             json={
@@ -60,7 +60,7 @@ async def test_login(client: AsyncGenerator[AsyncClient, None]):
             }
         )
         
-        # ログイン
+        # Login
         response = await c.post(
             "/api/v1/token",
             data={
@@ -76,7 +76,7 @@ async def test_login(client: AsyncGenerator[AsyncClient, None]):
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncGenerator[AsyncClient, None]):
     async for c in client:
-        # ユーザーを作成
+        # Create user
         await c.post(
             "/api/v1/users/",
             json={
@@ -86,7 +86,7 @@ async def test_login_wrong_password(client: AsyncGenerator[AsyncClient, None]):
             }
         )
         
-        # 間違ったパスワードでログイン
+        # Login with wrong password
         response = await c.post(
             "/api/v1/token",
             data={
@@ -100,7 +100,7 @@ async def test_login_wrong_password(client: AsyncGenerator[AsyncClient, None]):
 @pytest.mark.asyncio
 async def test_read_users_me(client: AsyncGenerator[AsyncClient, None]):
     async for c in client:
-        # ユーザーを作成
+        # Create user
         await c.post(
             "/api/v1/users/",
             json={
@@ -110,7 +110,7 @@ async def test_read_users_me(client: AsyncGenerator[AsyncClient, None]):
             }
         )
         
-        # ログインしてトークンを取得
+        # Login and get token
         login_response = await c.post(
             "/api/v1/token",
             data={
@@ -120,7 +120,7 @@ async def test_read_users_me(client: AsyncGenerator[AsyncClient, None]):
         )
         token = login_response.json()["access_token"]
         
-        # ユーザー情報を取得
+        # Get user information
         response = await c.get(
             "/api/v1/users/me/",
             headers={"Authorization": f"Bearer {token}"}

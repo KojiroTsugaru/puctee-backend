@@ -11,24 +11,24 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
-# テスト用のデータベースURL
+# Database URL for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-# テスト用のエンジンを作成
+# Create engine for testing
 engine = create_async_engine(
     TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
 
-# テスト用のセッションを作成
+# Create session for testing
 TestingSessionLocal = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
-    """イベントループを作成するフィクスチャ"""
+    """Fixture to create event loop"""
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -38,7 +38,7 @@ def event_loop() -> Generator:
 
 @pytest.fixture(scope="session")
 async def db_engine():
-    """データベースエンジンを作成するフィクスチャ"""
+    """Fixture to create database engine"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
@@ -47,14 +47,14 @@ async def db_engine():
 
 @pytest.fixture
 async def db_session(db_engine) -> AsyncSession:
-    """データベースセッションを作成するフィクスチャ"""
+    """Fixture to create database session"""
     async with TestingSessionLocal() as session:
         yield session
         await session.rollback()
 
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """テストクライアントを作成するフィクスチャ"""
+    """Fixture to create test client"""
     async def override_get_db():
         yield db_session
 

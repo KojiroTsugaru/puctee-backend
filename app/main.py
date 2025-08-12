@@ -10,12 +10,12 @@ import asyncio
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
-    # プランスケジューラーを開始
+    # Start plan scheduler
     asyncio.create_task(plan_scheduler.start())
 
-    yield  # ここで API サーバが立ち上がった状態に
+    yield  # API server is now running
 
-    # プランスケジューラーを停止
+    # Stop plan scheduler
     await plan_scheduler.stop()
 
 app = FastAPI(
@@ -25,16 +25,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS設定
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 本番環境では適切に制限する
+    allow_origins=["*"],  # Restrict appropriately in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ルーターの登録
+# Register routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(friends.router, prefix="/api/friends", tags=["friends"])

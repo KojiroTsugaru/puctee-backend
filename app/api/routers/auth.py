@@ -52,7 +52,7 @@ async def signup(
     )
     
     db.add(db_user)
-    await db.flush()  # IDを取得するためにflush
+    await db.flush()  # Flush to get ID
 
     # Create UserTrustStats for the new user
     trust_stats = UserTrustStats(user_id=db_user.id)
@@ -198,7 +198,7 @@ async def logout(
     except JWTError:
         raise HTTPException(status_code=400, detail="Invalid refresh token")
 
-    # Redis セットに追加
+    # Add to Redis set
     BLACKLISTED_REFRESH_TOKENS.add(refresh_token)
 
     return {"message": "Successfully logged out"}
@@ -209,7 +209,7 @@ async def validate_username(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    ユーザー名が利用可能かどうかを検証する
+    Validate if username is available
     """
     result = await db.execute(
         select(UserModel).where(UserModel.username == username)
@@ -227,16 +227,16 @@ async def validate_email(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    メールアドレスが利用可能かどうかを検証する
+    Validate if email address is available
     """
-    # メールアドレスの形式を検証
+    # Validate email address format
     if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email format"
         )
     
-    # メールアドレスの重複をチェック（大文字小文字を区別しない）
+    # Check for email address duplication (case-insensitive)
     result = await db.execute(
         select(UserModel).where(UserModel.email.ilike(email))
     )

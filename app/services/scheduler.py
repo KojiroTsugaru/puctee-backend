@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 class PlanScheduler:
     def __init__(self):
         self.running = False
-        self.check_interval = 60  # 1分ごとにチェック
+        self.check_interval = 60  # Check every 1 minute
 
     async def start(self):
-        """スケジューラーを開始する"""
+        """Start the scheduler"""
         if self.running:
             return
 
@@ -31,15 +31,15 @@ class PlanScheduler:
             await asyncio.sleep(self.check_interval)
 
     async def stop(self):
-        """スケジューラーを停止する"""
+        """Stop the scheduler"""
         self.running = False
         logger.info("Plan scheduler stopped")
 
     async def _check_plans(self):
-        """開始時刻が近づいているプランをチェックし、通知を送信する"""
+        """Check for plans with approaching start times and send notifications"""
         async with AsyncSessionLocal() as session:
             try:
-                # 現在時刻から1分以内に開始するプランを取得
+                # Get plans that start within 1 minute from current time
                 now = datetime.now(timezone.utc)
                 check_time = now - timedelta(seconds=self.check_interval)
                 query = select(Plan).where(
@@ -58,9 +58,9 @@ class PlanScheduler:
                 await session.close()
 
     async def _send_start_notifications(self, plan: Plan, session: AsyncSession):
-        """プランの参加者全員に開始通知を送信する"""
+        """Send start notifications to all plan participants"""
         try:
-            # プランの参加者を取得（JOINを使用して一度のクエリで取得）
+            # Get plan participants (using JOIN for single query retrieval)
             query = select(User).join(
                 plan.participants.relationship.property.mapper.class_,
                 User.id == plan.participants.relationship.property.mapper.class_.user_id
@@ -70,7 +70,7 @@ class PlanScheduler:
             result = await session.execute(query)
             participants = result.scalars().all()
 
-            # 各参加者に通知を送信
+            # Send notification to each participant
             for participant in participants:
                 if participant.push_token:
                     await notificationClient.send_silent_notification(
@@ -86,5 +86,5 @@ class PlanScheduler:
         except Exception as e:
             logger.error(f"Error sending start notifications for plan {plan.id}: {str(e)}", exc_info=True)
 
-# シングルトンインスタンスの作成
+# Create singleton instance
 plan_scheduler = PlanScheduler() 

@@ -17,7 +17,7 @@ plan_participants = Table(
     Column('plan_id', Integer, ForeignKey('plans.id'), primary_key=True),
     Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
     Column('arrival_status', String, nullable=True),  # on_time, late, not_arrived
-    Column('checked_at', DateTime(timezone=True), nullable=True)  # 到着確認した時刻
+    Column('checked_at', DateTime(timezone=True), nullable=True)  # Time when arrival was confirmed
 )
 
 class User(Base):
@@ -56,14 +56,14 @@ class UserTrustStats(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    total_plans = Column(Integer, default=0)  # 参加したプランの総数
-    late_plans = Column(Integer, default=0)   # 遅刻したプランの数
-    on_time_streak = Column(Integer, default=0)  # 現在の連続時間通り到着数
-    best_on_time_streak = Column(Integer, default=0)  # 過去最高の連続時間通り到着数
-    last_arrival_status = Column(String, nullable=True)  # 最後の到着状況
-    trust_level = Column(Float, default=60.0)  # 信頼度レベル（0-100%）
+    total_plans = Column(Integer, default=0)  # Total number of plans participated in
+    late_plans = Column(Integer, default=0)   # Number of plans where user was late
+    on_time_streak = Column(Integer, default=0)  # Current consecutive on-time arrivals
+    best_on_time_streak = Column(Integer, default=0)  # Best consecutive on-time arrivals record
+    last_arrival_status = Column(String, nullable=True)  # Last arrival status
+    trust_level = Column(Float, default=60.0)  # Trust level (0-100%)
 
-    # リレーションシップの定義を修正
+    # Fix relationship definition
     user = relationship("User", back_populates="trust_stats", uselist=False)
 
 class FriendInvite(Base):

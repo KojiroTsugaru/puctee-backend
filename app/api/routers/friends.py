@@ -108,7 +108,7 @@ async def read_received_invites(
     invite_result = await db.execute(
         select(FriendInviteModel).where(
             FriendInviteModel.receiver_id == user.id,
-            FriendInviteModel.status == "pending"  # ← pending のみフィルタ
+            FriendInviteModel.status == "pending"  # Filter only pending
         )
     )
     pending_invites = invite_result.scalars().all()
@@ -138,7 +138,7 @@ async def read_sent_invites(
     invite_result = await db.execute(
         select(FriendInviteModel).where(
             FriendInviteModel.sender_id == user.id,
-            FriendInviteModel.status == "pending"  # ← pending のみフィルタ
+            FriendInviteModel.status == "pending"  # Filter only pending
         )
     )
     pending_invites = invite_result.scalars().all()

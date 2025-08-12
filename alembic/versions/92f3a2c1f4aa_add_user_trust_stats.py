@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # UserTrustStatsテーブルの作成
+    # Create UserTrustStats table
     op.create_table(
         'user_trust_stats',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -37,7 +37,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # UserTrustStatsテーブルの削除
+    # Delete UserTrustStats table
     op.drop_index(op.f('ix_user_trust_stats_user_id'), table_name='user_trust_stats')
     op.drop_index(op.f('ix_user_trust_stats_id'), table_name='user_trust_stats')
     op.drop_table('user_trust_stats')
