@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import User, Plan
+from app.services.scheduler import cancel_silent_for_plan
 
 router = APIRouter()
 
@@ -41,4 +42,6 @@ async def delete_plan(
     # Delete plan
     await db.delete(plan)
     await db.commit()
+    
+    await cancel_silent_for_plan(plan_id)
     return None

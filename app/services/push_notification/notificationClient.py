@@ -52,7 +52,8 @@ class notificationClient:
         body: str,
         data: dict = None,
         sound: str = "default",
-        badge: int = None
+        badge: int = None,
+        category: str = None
     ) -> bool:
         """
         Send push notification
@@ -64,6 +65,7 @@ class notificationClient:
             data (dict, optional): Additional data
             sound (str, optional): Notification sound
             badge (int, optional): Badge count
+            category (str, optional): Notification category identifier
             
         Returns:
             bool: True on successful send, False on failure
@@ -76,18 +78,23 @@ class notificationClient:
             logger.info(f"Notification content - title: {title}, body: {body}")
 
             # Create notification request
+            aps_payload = {
+                "alert": {
+                    "title": title,
+                    "body": body
+                },
+                "sound": sound,
+                "badge": badge,
+            }
+            
+            # Add category to aps if provided
+            if category:
+                aps_payload["category"] = category
+            
             request = NotificationRequest(
                 device_token=device_token,
                 message={
-                    "aps": {
-                        "alert": {
-                            "title": title,
-                            "body": body
-                        },
-                        "sound": sound,
-                        "badge": badge,
-                        "content-available": 1
-                    },
+                    "aps": aps_payload,
                     **(data or {})
                 },
                 push_type=PushType.ALERT
@@ -111,7 +118,8 @@ class notificationClient:
     async def send_silent_notification(
         self,
         device_token: str,
-        data: dict = None
+        data: dict = None,
+        category: str = None
     ) -> bool:
         """
         Send silent push notification
@@ -119,6 +127,7 @@ class notificationClient:
         Args:
             device_token (str): Device token
             data (dict, optional): Additional data
+            category (str, optional): Notification category identifier
             
         Returns:
             bool: True on successful send, False on failure
@@ -130,16 +139,22 @@ class notificationClient:
             logger.info(f"Sending silent notification to device token: {device_token}")
 
             # Create silent notification request
+            aps_payload = {
+                "content-available": 1
+            }
+            
+            # Add category to aps if provided
+            if category:
+                aps_payload["category"] = category
+            
             request = NotificationRequest(
                 device_token=device_token,
                 message={
-                    "aps": {
-                        "content-available": 1,
-                        "sound": ""
-                    },
+                    "aps": aps_payload,
                     **(data or {})
                 },
-                push_type=PushType.BACKGROUND
+                push_type=PushType.BACKGROUND,
+                priority=5
             )
 
             # Send notification

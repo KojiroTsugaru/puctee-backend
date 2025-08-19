@@ -6,6 +6,7 @@ from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import Plan, User, Location, Penalty
 from app.schemas import PlanUpdate, Plan as PlanSchema
+from app.services.scheduler import schedule_silent_for_plan
 
 router = APIRouter()
 
@@ -92,4 +93,7 @@ async def update_plan(
     await db.commit()
     await db.refresh(plan)
 
+    start_utc = plan.start_time.astimezone(timezone.utc)
+    await schedule_silent_for_plan(plan.id, start_utc, db)
+    
     return plan

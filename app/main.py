@@ -4,19 +4,19 @@ from contextlib import asynccontextmanager
 from mangum import Mangum
 from app.api.routers import auth, plans, users, friends, notifications, invite
 from app.api.routers.plans import router as plans_router
-from app.services.scheduler import plan_scheduler
+from app.services.scheduler import start_scheduler, stop_scheduler
 import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     # Start plan scheduler
-    asyncio.create_task(plan_scheduler.start())
+    start_scheduler()
 
     yield  # API server is now running
 
     # Stop plan scheduler
-    await plan_scheduler.stop()
+    stop_scheduler()
 
 app = FastAPI(
     title="Puctee API",

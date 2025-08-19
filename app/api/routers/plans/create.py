@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 from app.core.auth import get_current_username
@@ -11,10 +11,17 @@ from app.db.session import get_db
 from app.models import User, Plan, Location, Penalty, PlanInvite
 from app.schemas import Plan as PlanSchema, PlanCreate
 from app.services.push_notification import send_plan_invite_notification
+from app.services.scheduler import schedule_silent_for_plan
 
-# Configure CloudWatch logger
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+# Configure logger to show in console
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This ensures logs appear in console
+    ]
+)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -125,6 +132,12 @@ async def create_plan(
                     continue
 
             log_operation("create_plan_complete", {"notifications_sent": notification_count}, user.id, db_plan.id)
+            
+            # start_time はtz付きUTCで扱う（無ければUTC化）
+            start_utc = plan.start_time.astimezone(timezone.utc)
+            logger.info(f"Plan {db_plan.id} start_time: {plan.start_time}, UTC: {start_utc}")
+            await schedule_silent_for_plan(db_plan.id, start_utc)
+            logger.info(f"Silent notification scheduled for plan {db_plan.id}")
             return full_plan
 
         except Exception as e:

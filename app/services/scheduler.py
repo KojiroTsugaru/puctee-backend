@@ -1,90 +1,100 @@
-import asyncio
-import logging
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import AsyncSessionLocal
+# app/services/scheduler.py
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import datetime, timezone
+from app.services.push_notification import send_silent_wakeup_arrival_notification
+from app.db.session import get_db
 from app.models import Plan, User
-from app.services.push_notification.notificationClient import notificationClient
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+import logging
+
+# Configure logging to show in console
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This ensures logs appear in console
+    ]
+)
 
 logger = logging.getLogger(__name__)
 
-class PlanScheduler:
-    def __init__(self):
-        self.running = False
-        self.check_interval = 60  # Check every 1 minute
+# Enable APScheduler logging to see job execution details
+apscheduler_logger = logging.getLogger('apscheduler')
+apscheduler_logger.setLevel(logging.INFO)
 
-    async def start(self):
-        """Start the scheduler"""
-        if self.running:
-            return
+scheduler = AsyncIOScheduler()
 
-        self.running = True
-        logger.info("Plan scheduler started")
-        
-        while self.running:
-            try:
-                await self._check_plans()
-            except Exception as e:
-                logger.error(f"Error in plan scheduler: {str(e)}", exc_info=True)
-            
-            await asyncio.sleep(self.check_interval)
+def start_scheduler():
+    scheduler.start()
 
-    async def stop(self):
-        """Stop the scheduler"""
-        self.running = False
-        logger.info("Plan scheduler stopped")
+def stop_scheduler():
+    scheduler.shutdown()
 
-    async def _check_plans(self):
-        """Check for plans with approaching start times and send notifications"""
-        async with AsyncSessionLocal() as session:
-            try:
-                # Get plans that start within 1 minute from current time
-                now = datetime.now(timezone.utc)
-                check_time = now - timedelta(seconds=self.check_interval)
-                query = select(Plan).where(
-                    Plan.start_time <= now,
-                    Plan.start_time > check_time
-                )
-                result = await session.execute(query)
-                plans = result.scalars().all()
+def job_id(plan_id: int) -> str:
+    return f"plan-silent-{plan_id}"
 
-                for plan in plans:
-                    await self._send_start_notifications(plan, session)
-            except Exception as e:
-                logger.error(f"Error checking plans: {str(e)}", exc_info=True)
-                await session.rollback()
-            finally:
-                await session.close()
+async def schedule_silent_for_plan(plan_id: int, when_utc: datetime):
+    # 既存ジョブがあれば置き換え
+    jid = job_id(plan_id)
+    try:
+        scheduler.remove_job(jid)
+        logger.info(f"Removed existing job {jid}")
+    except Exception as e:
+        logger.info(f"No existing job to remove for {jid}: {e}")
+    
+    logger.info(f"Scheduling silent notification for plan {plan_id} at {when_utc} (UTC)")
+    scheduler.add_job(send_silent_job, "date", id=jid, run_date=when_utc, args=[plan_id])
+    
+    # Log all scheduled jobs for debugging
+    jobs = scheduler.get_jobs()
+    logger.info(f"Total scheduled jobs: {len(jobs)}")
+    for job in jobs:
+        logger.info(f"Job {job.id}: next run at {job.next_run_time}")
 
-    async def _send_start_notifications(self, plan: Plan, session: AsyncSession):
-        """Send start notifications to all plan participants"""
+async def cancel_silent_for_plan(plan_id: int):
+    try:
+        scheduler.remove_job(job_id(plan_id))
+    except Exception:
+        pass
+
+async def send_silent_job(plan_id: int):
+    logger.info(f"Executing silent notification job for plan {plan_id}")
+    
+    # DBから対象プランと参加者のデバイストークンを引く
+    async for db in get_db():
         try:
-            # Get plan participants (using JOIN for single query retrieval)
-            query = select(User).join(
-                plan.participants.relationship.property.mapper.class_,
-                User.id == plan.participants.relationship.property.mapper.class_.user_id
-            ).where(
-                plan.participants.relationship.property.mapper.class_.plan_id == plan.id
+            result = await db.execute(
+                select(Plan).options(selectinload(Plan.participants)).where(Plan.id == plan_id)
             )
-            result = await session.execute(query)
-            participants = result.scalars().all()
-
-            # Send notification to each participant
-            for participant in participants:
-                if participant.push_token:
-                    await notificationClient.send_silent_notification(
-                        device_token=participant.push_token,
-                        data={
-                            "type": "plan_start",
-                            "plan_id": plan.id,
-                            "plan_title": plan.title
-                        }
-                    )
-
-            logger.info(f"Sent start notifications for plan {plan.id}")
+            plan = result.scalar_one_or_none()
+            if not plan:
+                logger.warning(f"Plan {plan_id} not found for silent notification")
+                return
+            
+            logger.info(f"Found plan '{plan.title}' with {len(plan.participants)} participants")
+            
+            # 参加者それぞれに投げる
+            notification_count = 0
+            for user in plan.participants:
+                if user.push_token:
+                    try:
+                        logger.info(f"Sending silent notification to user {user.username}")
+                        await send_silent_wakeup_arrival_notification(
+                            device_token=user.push_token,
+                            plan_id=plan_id
+                        )
+                        notification_count += 1
+                        logger.info(f"Silent notification sent successfully to {user.username}")
+                    except Exception as e:
+                        logger.error(f"APNs silent failed for user {user.username}: {e}")
+                else:
+                    logger.info(f"User {user.username} has no push token, skipping")
+            
+            logger.info(f"Silent notification job completed for plan {plan_id}. Sent {notification_count} notifications")
+            
         except Exception as e:
-            logger.error(f"Error sending start notifications for plan {plan.id}: {str(e)}", exc_info=True)
-
-# Create singleton instance
-plan_scheduler = PlanScheduler() 
+            logger.error(f"Error in send_silent_job for plan {plan_id}: {e}")
+        finally:
+            await db.close()
+        break  # Only process once
