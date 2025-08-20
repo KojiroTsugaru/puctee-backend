@@ -78,7 +78,7 @@ async def check_arrival(
         if is_arrived:
             plan.status = "completed"
         else:
-            plan.status = "on_going"
+            plan.status = "ongoing"
         
         # Update statistics
         await update_trust_stats(plan_id, user, plan, is_arrived, time_diff, db)

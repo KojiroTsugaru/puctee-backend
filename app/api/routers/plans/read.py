@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import selectinload
 from typing import List
 from datetime import datetime, UTC
@@ -42,7 +42,7 @@ async def read_plans(
             Plan.participants.contains(user),
             Plan.status.in_(params.plan_status)
         )
-        .order_by(Plan.start_time)  # Sort by start_time in ascending order
+        .order_by(Plan.start_time.desc())  # Sort by start_time in descending order
         .offset(params.skip)
         .limit(params.limit)
     )
