@@ -8,22 +8,22 @@ def calculate_trust_level_change(
     total_plans: int
 ) -> Tuple[float, str]:
     """
-    Calculate trust level changes
+    Calculate trust level changes (AGGRESSIVE VERSION)
     
     Basic change amounts:
-        On-time arrival: +2.0%
-        Late: -3.0%
-        No arrival: -5.0%
+        On-time arrival: +8.0%
+        Late: -12.0%
+        No arrival: -20.0%
     Consecutive success/failure bonus/penalty:
-    Consecutive on-time arrivals: Maximum +5% bonus
-    Consecutive success broken by lateness: Maximum -3% penalty
-    Consecutive success broken by no-show: Maximum -4% penalty
+    Consecutive on-time arrivals: Maximum +15% bonus
+    Consecutive success broken by lateness: Maximum -10% penalty
+    Consecutive success broken by no-show: Maximum -15% penalty
     Stabilization through experience:
-        The more total plans, the more gradual trust level changes become
-        Maximum 50% change reduction for 10+ plans
+        Reduced experience stabilization for more dramatic changes
+        Maximum 25% change reduction for 20+ plans
     Range limits:
         Trust level stays within 0-100% range
-        Change amount capped to prevent sudden fluctuations
+        Larger changes allowed for more dramatic impact
     
     Args:
         current_trust_level: Current trust level (0-100)
@@ -41,40 +41,40 @@ def calculate_trust_level_change(
     if arrival_status == "on_time":
         # Case of on-time arrival
         if current_streak > 0:
-            # Consecutive success bonus
-            streak_bonus = min(current_streak * 0.5, 5.0)  # Maximum 5% bonus
-            base_change = 2.0 + streak_bonus
+            # Consecutive success bonus (more aggressive)
+            streak_bonus = min(current_streak * 1.5, 15.0)  # Maximum 15% bonus
+            base_change = 8.0 + streak_bonus
             explanation = f"On-time arrival ({current_streak} consecutive): +{base_change:.1f}%"
         else:
-            base_change = 2.0
-            explanation = "On-time arrival: +2.0%"
+            base_change = 8.0
+            explanation = "On-time arrival: +8.0%"
     
     elif arrival_status == "late":
         # Case of lateness
         if current_streak > 0:
-            # Penalty for breaking consecutive success
-            streak_penalty = min(current_streak * 0.3, 3.0)  # Maximum 3% penalty
-            base_change = -3.0 - streak_penalty
+            # Penalty for breaking consecutive success (more aggressive)
+            streak_penalty = min(current_streak * 1.0, 10.0)  # Maximum 10% penalty
+            base_change = -12.0 - streak_penalty
             explanation = f"Late ({current_streak} consecutive broken): {base_change:.1f}%"
         else:
-            base_change = -3.0
-            explanation = "Late: -3.0%"
+            base_change = -12.0
+            explanation = "Late: -12.0%"
     
     else:  # not_arrived
         # Case of no arrival
         if current_streak > 0:
-            # Penalty for breaking consecutive success
-            streak_penalty = min(current_streak * 0.4, 4.0)  # Maximum 4% penalty
-            base_change = -5.0 - streak_penalty
+            # Penalty for breaking consecutive success (more aggressive)
+            streak_penalty = min(current_streak * 1.5, 15.0)  # Maximum 15% penalty
+            base_change = -20.0 - streak_penalty
             explanation = f"No arrival ({current_streak} consecutive broken): {base_change:.1f}%"
         else:
-            base_change = -5.0
-            explanation = "No arrival: -5.0%"
+            base_change = -20.0
+            explanation = "No arrival: -20.0%"
 
-    # Adjustment based on total plans (stabilization through experience)
+    # Adjustment based on total plans (reduced stabilization for more drama)
     if total_plans > 0:
-        experience_factor = min(total_plans / 10, 1.0)  # Maximum effect for 10+ plans
-        base_change *= (1.0 - experience_factor * 0.5)  # Maximum 50% change reduction
+        experience_factor = min(total_plans / 20, 1.0)  # Maximum effect for 20+ plans
+        base_change *= (1.0 - experience_factor * 0.25)  # Maximum 25% change reduction
 
     # Calculate new trust level (keep within 0-100 range)
     new_trust_level = max(0.0, min(100.0, current_trust_level + base_change))
