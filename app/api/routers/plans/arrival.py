@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models import Plan, User, UserTrustStats
 from app.schemas import LocationCheck, LocationCheckResponse
 from app.services.push_notification import send_arrival_check_notification
+from app.services.trust_level import update_trust_level
 from datetime import datetime, timezone
 
 router = APIRouter()
@@ -70,10 +71,6 @@ async def check_arrival(
         )
         is_arrived = distance <= 0.1  # Within 100 meters
         
-        # Compare current time with start time
-        current_time = datetime.now(timezone.utc)
-        time_diff = (current_time - plan.start_time).total_seconds()
-        
         # Update plan status based on arrival result
         if is_arrived:
             plan.status = "completed"
@@ -81,7 +78,7 @@ async def check_arrival(
             plan.status = "ongoing"
         
         # Update statistics
-        await update_trust_stats(plan_id, user, plan, is_arrived, time_diff, db)
+        await update_trust_stats(user, plan, is_arrived, db)
         
         # Send push notification to the user who checked arrival
         if user.push_token:
@@ -112,11 +109,9 @@ async def check_arrival(
         )
 
 async def update_trust_stats(
-    plan_id: int,
     user: User,
     plan: Plan,
     is_arrived: bool,
-    time_diff: float,
     db: AsyncSession
 ) -> None:
     """
@@ -126,7 +121,6 @@ async def update_trust_stats(
         user: User object
         plan: Plan object
         is_arrived: Whether arrived or not
-        time_diff: Time difference from start time (seconds)
         db: Database session
     """
     # Get user's trust statistics
@@ -142,24 +136,28 @@ async def update_trust_stats(
 
     # Update statistics based on arrival status
     if is_arrived:
-        if time_diff <= 0:  # Before start time
-            plan.arrival_status = "on_time"
-            trust_stats.on_time_streak += 1
-            trust_stats.best_on_time_streak = max(
-                trust_stats.best_on_time_streak,
-                trust_stats.on_time_streak
+        plan.arrival_status = "on_time"
+        trust_stats.on_time_streak += 1
+        trust_stats.best_on_time_streak = max(
+            trust_stats.best_on_time_streak,
+            trust_stats.on_time_streak
             )
-        else:  # After start time
-            plan.arrival_status = "late"
-            trust_stats.late_plans += 1
-            trust_stats.on_time_streak = 0
     else:
-        plan.arrival_status = "not_arrived"
+        plan.arrival_status = "late"
+        trust_stats.late_plans += 1
         trust_stats.on_time_streak = 0
-
+        
     # Common statistics update
     trust_stats.total_plans += 1
-    trust_stats.last_arrival_status = plan.arrival_status
+    
+    # Use trust level service to calculate and update trust level
+    trust_level_explanation = update_trust_level(trust_stats, plan.arrival_status)
+    
+    # Log the trust level change for debugging
+    print(f"Trust level updated for user {user.username}: {trust_level_explanation}")
+    
+    # Ensure trust_stats changes are tracked by the session
+    db.add(trust_stats)
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
