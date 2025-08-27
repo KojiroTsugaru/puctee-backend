@@ -76,3 +76,26 @@ async def upload_to_s3(file: UploadFile, user_id: int) -> str:
         logger.exception("Unexpected processing error")
         print("Unexpected processing error")
         raise HTTPException(status_code=500, detail="Image processing or internal error")
+
+async def upload_proof_image_to_s3(image_data: bytes, user_id: int, request_id: int) -> str:
+    """Upload proof image data to S3 for penalty approval requests"""
+    try:
+        # Create S3 key for proof images
+        s3_key = f"penalty_proof_images/{user_id}_{request_id}.jpg"
+        
+        # Upload to S3
+        await to_thread.run_sync(lambda: s3_client.put_object(
+            Bucket=settings.AWS_S3_BUCKET,
+            Key=s3_key,
+            Body=image_data,
+            ContentType="image/jpeg",
+        ))
+        return f"https://{settings.AWS_S3_BUCKET}.s3.{settings.AWS_REGION}.amazonaws.com/{s3_key}"
+    except ClientError as e:
+        logger.exception("S3 proof image upload failed")
+        print(e.response['Error']['Message'])
+        raise HTTPException(status_code=502, detail=f"S3 error: {e.response['Error']['Message']}")
+    except Exception:
+        logger.exception("Unexpected proof image processing error")
+        print("Unexpected proof image processing error")
+        raise HTTPException(status_code=500, detail="Proof image processing or internal error")

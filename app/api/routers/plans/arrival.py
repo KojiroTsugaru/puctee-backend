@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from app.core.auth import get_current_username
 from app.db.session import get_db
-from app.models import Plan, User, UserTrustStats
+from app.models import Plan, User, UserTrustStats, plan_participants
 from app.schemas import LocationCheck, LocationCheckResponse
 from app.services.push_notification import send_arrival_check_notification
 from app.services.trust_level import update_trust_level
@@ -76,6 +76,9 @@ async def check_arrival(
             plan.status = "completed"
         else:
             plan.status = "ongoing"
+        
+        # Update penalty status in plan_participants
+        await update_penalty_status(user, plan, is_arrived, db)
         
         # Update statistics
         await update_trust_stats(user, plan, is_arrived, db)
@@ -158,6 +161,45 @@ async def update_trust_stats(
     
     # Ensure trust_stats changes are tracked by the session
     db.add(trust_stats)
+
+async def update_penalty_status(
+    user: User,
+    plan: Plan,
+    is_arrived: bool,
+    db: AsyncSession
+) -> None:
+    """
+    Update penalty status in plan_participants table
+    
+    Args:
+        user: User object
+        plan: Plan object
+        is_arrived: Whether user arrived or not
+        db: Database session
+    """
+    # Determine penalty status based on arrival
+    if is_arrived:
+        penalty_status = 'none'  # No penalty needed - user arrived successfully
+    else:
+        penalty_status = 'pending'  # Penalty pending - user failed to arrive
+    
+    # Update penalty status in plan_participants table
+    stmt = (
+        update(plan_participants)
+        .where(
+            plan_participants.c.plan_id == plan.id,
+            plan_participants.c.user_id == user.id
+        )
+        .values(
+            penalty_status=penalty_status,
+            checked_at=datetime.now(timezone.utc)
+        )
+    )
+    
+    await db.execute(stmt)
+    
+    # Log penalty status update
+    print(f"Penalty status updated for user {user.username} in plan {plan.id}: {penalty_status}")
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """

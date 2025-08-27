@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 # Base schemas
 class UserBase(BaseModel):
@@ -197,7 +197,50 @@ class NotificationResponse(NotificationBase):
     is_read: bool
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+# Penalty Status Schemas
+class PenaltyStatusUpdate(BaseModel):
+    plan_id: int
+    user_id: int
+    penalty_status: Literal['none', 'pending', 'completed', 'exempted']
+
+class PenaltyStatusResponse(BaseModel):
+    plan_id: int
+    user_id: int
+    penalty_status: str
+    penalty_completed_at: Optional[datetime] = None
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Penalty Approval Request Schemas
+class PenaltyApprovalRequestCreate(BaseModel):
+    comment: Optional[str] = None
+    proof_image_data: Optional[bytes] = None
+
+class PenaltyApprovalRequestResponse(BaseModel):
+    id: int
+    plan_id: int
+    penalty_user_id: int
+    comment: Optional[str] = None
+    proof_image_url: Optional[str] = None
+    status: str
+    approver_user_id: Optional[int] = None
+    approved_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class PenaltyApprovalStatus(BaseModel):
+    plan_id: int
+    penalty_user_id: int
+    has_approval: bool
+    approver_user_id: Optional[int] = None
+    approved_at: Optional[datetime] = None
 
 class PushTokenUpdate(BaseModel):
     push_token: str 
@@ -229,3 +272,20 @@ class PlanListRequest(BaseModel):
     skip: int = 0
     limit: int = 20
     plan_status: List[str] = ["upcoming", "ongoing", "completed", "cancelled"]
+
+# WebSocket Schemas
+class LocationShareMessage(BaseModel):
+    user_id: int
+    display_name: str
+    profile_image_url: Optional[str] = None
+    latitude: float
+    longitude: float
+
+class WebSocketErrorResponse(BaseModel):
+    error: str
+    code: Optional[str] = None
+
+class LocationUpdateRequest(BaseModel):
+    latitude: float
+    longitude: float
+    name: Optional[str] = None

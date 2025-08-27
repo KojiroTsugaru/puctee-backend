@@ -104,3 +104,27 @@ async def send_arrival_check_notification(plan: Plan, device_token: str, is_arri
             "is_arrived": is_arrived,
         }
     )
+
+# Send penalty approval request notification
+async def send_penalty_approval_request_notification(device_token: str, requesting_user_name: str, request_id: int, plan_title: str) -> bool:
+    """
+    Send penalty approval request notification
+    
+    Args:
+        device_token (str): Device token
+        requesting_user_name (str): Name of the user requesting approval
+        request_id (int): ID of the penalty approval request
+        plan_title (str): Title of the plan
+        
+    Returns:
+        bool: True on successful send, False on failure
+    """
+    return await push_notification_client.send_notification(
+        device_token=device_token,
+        title="Penalty Approval Request",
+        body=f"{requesting_user_name} is asking for penalty approval for {plan_title}!",
+        category="PENALTY_APPROVAL_REQUEST",
+        data={
+            "request_id": request_id
+        }
+    )

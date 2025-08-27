@@ -17,7 +17,9 @@ plan_participants = Table(
     Column('plan_id', Integer, ForeignKey('plans.id'), primary_key=True),
     Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
     Column('arrival_status', String, nullable=True),  # on_time, late, not_arrived
-    Column('checked_at', DateTime(timezone=True), nullable=True)  # Time when arrival was confirmed
+    Column('checked_at', DateTime(timezone=True), nullable=True),  # Time when arrival was confirmed
+    Column('penalty_status', String, default='none'),  # none, pending, completed, exempted
+    Column('penalty_completed_at', DateTime(timezone=True), nullable=True)  # When penalty was completed
 )
 
 class User(Base):
@@ -118,6 +120,28 @@ class Penalty(Base):
 
     plan = relationship("Plan", back_populates="penalties")
     user = relationship("User", back_populates="penalties")
+    approval_requests = relationship("PenaltyApprovalRequest", back_populates="penalty")
+
+class PenaltyApprovalRequest(Base):
+    __tablename__ = "penalty_approval_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan_id = Column(Integer, ForeignKey('plans.id'), nullable=False)
+    penalty_id = Column(Integer, ForeignKey('penalties.id'), nullable=True)  # Optional link to specific penalty
+    penalty_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # User requesting approval
+    comment = Column(Text, nullable=True)  # Optional comment from user
+    proof_image_url = Column(String, nullable=True)  # Optional proof image URL
+    status = Column(String, default='pending')  # pending, approved, declined
+    approver_user_id = Column(Integer, ForeignKey('users.id'), nullable=True)  # User who approved/declined
+    approved_at = Column(DateTime(timezone=True), nullable=True)  # When approved/declined
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    plan = relationship("Plan")
+    penalty = relationship("Penalty", back_populates="approval_requests")
+    penalty_user = relationship("User", foreign_keys=[penalty_user_id])
+    approver_user = relationship("User", foreign_keys=[approver_user_id])
 
 class Location(Base):
     __tablename__ = "locations"

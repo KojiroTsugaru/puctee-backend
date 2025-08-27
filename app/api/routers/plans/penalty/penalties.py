@@ -1,4 +1,4 @@
-# Penalty endpoints
+# Basic penalty CRUD endpoints
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +6,10 @@ from sqlalchemy import select
 from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import User, Plan, Penalty
-from app.schemas import Penalty as PenaltySchema, PenaltyCreate
+from app.schemas import (
+    Penalty as PenaltySchema, 
+    PenaltyCreate
+)
 
 router = APIRouter()
 

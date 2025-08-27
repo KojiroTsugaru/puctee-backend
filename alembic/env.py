@@ -73,14 +73,10 @@ async def run_async_migrations():
     """
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
     from sqlalchemy.ext.asyncio import create_async_engine
     connectable = create_async_engine(
         get_url(),
         poolclass=pool.NullPool,
-        connect_args={"ssl": ssl_context}
     )
 
     async with connectable.connect() as connection:
