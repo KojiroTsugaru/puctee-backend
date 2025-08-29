@@ -1,10 +1,7 @@
-import asyncio
 from logging.config import fileConfig
-import ssl
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
 from app.core.config import settings
@@ -30,6 +27,9 @@ target_metadata = Base.metadata
 
 def get_url():
     url = settings.DATABASE_URL
+    # Convert asyncpg URL to psycopg2 for migrations
+    if url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
     print(f"[alembic] Using DATABASE_URL: {url}")
     return url
 
@@ -67,27 +67,19 @@ def do_run_migrations(connection):
         context.run_migrations()
 
 
-async def run_async_migrations():
-    """In this scenario we need to create an Engine
-    and associate a connection with the context.
-    """
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
-    from sqlalchemy.ext.asyncio import create_async_engine
-    connectable = create_async_engine(
-        get_url(),
+    
+    connectable = engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
-
-
-def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
 
 
 if context.is_offline_mode():
