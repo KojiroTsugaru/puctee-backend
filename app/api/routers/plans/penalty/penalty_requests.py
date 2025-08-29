@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import select, update
 from app.core.auth import get_current_username
 from app.db.session import get_db
-from app.models import User, Plan, plan_participants, PenaltyApprovalRequest
+from app.models import User, Plan, plan_participants, PenaltyApprovalRequest, Penalty
 from app.schemas import (
     PenaltyApprovalRequestCreate,
     PenaltyApprovalRequestResponse,
@@ -58,7 +58,7 @@ async def send_penalty_approval_request(
             detail="Only plan participants can request penalty approval"
         )
     
-    # Check if requesting user has penalty_status 'pending'
+    # Check if requesting user has penalty_status 'required'
     result = await db.execute(
         select(plan_participants).where(
             plan_participants.c.plan_id == plan_id,
@@ -66,10 +66,10 @@ async def send_penalty_approval_request(
         )
     )
     requesting_participant = result.first()
-    if not requesting_participant or requesting_participant.penalty_status != 'pending':
+    if not requesting_participant or requesting_participant.penalty_status != 'required':
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only request approval for penalties with 'pending' status"
+            detail="Can only request approval for penalties with 'required' status"
         )
     
     # Check if there's already a pending approval request
@@ -86,6 +86,17 @@ async def send_penalty_approval_request(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="There is already a pending approval request for this user"
         )
+    
+    # Update penalty status to pendingApproval
+    stmt = (
+        update(plan_participants)
+        .where(
+            plan_participants.c.plan_id == plan_id,
+            plan_participants.c.user_id == requesting_user.id
+        )
+        .values(penalty_status='pendingApproval')
+    )
+    await db.execute(stmt)
     
     # Create penalty approval request
     approval_request = PenaltyApprovalRequest(
@@ -240,10 +251,10 @@ async def approve_penalty(
             detail="Penalty user is not a participant in this plan"
         )
     
-    if penalty_participant.penalty_status != 'pending':
+    if penalty_participant.penalty_status != 'required':
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only approve penalties with 'pending' status"
+            detail="Can only approve penalties with 'required' status"
         )
     
     # Check if approval already exists (status is already approved)
@@ -366,6 +377,20 @@ async def decline_penalty(
     # Update approval request status to 'declined'
     approval_request.status = 'declined'
     approval_request.updated_at = datetime.now(timezone.utc)
+    
+    # Update penalty status back to 'required'
+    stmt = (
+        update(plan_participants)
+        .where(
+            plan_participants.c.plan_id == plan_id,
+            plan_participants.c.user_id == approval_request.penalty_user_id
+        )
+        .values(
+            penalty_status='required',
+            penalty_completed_at=None  # Clear completion timestamp
+        )
+    )
+    await db.execute(stmt)
     
     await db.commit()
     
@@ -536,11 +561,11 @@ async def get_penalty_approval_request_by_id(
             detail="User not found"
         )
     
-    # Get the specific approval request
+    # Get the specific approval request with penalty information
     result = await db.execute(
-        select(PenaltyApprovalRequest).where(
-            PenaltyApprovalRequest.id == request_id
-        )
+        select(PenaltyApprovalRequest)
+        .options(selectinload(PenaltyApprovalRequest.penalty))
+        .where(PenaltyApprovalRequest.id == request_id)
     )
     approval_request = result.scalar_one_or_none()
     if not approval_request:
@@ -569,7 +594,22 @@ async def get_penalty_approval_request_by_id(
             detail="Only plan participants can view penalty approval requests"
         )
     
-    return approval_request
+    # Create response with penalty_name
+    response_data = {
+        "id": approval_request.id,
+        "plan_id": approval_request.plan_id,
+        "penalty_user_id": approval_request.penalty_user_id,
+        "penalty_name": approval_request.penalty.content if approval_request.penalty else None,
+        "comment": approval_request.comment,
+        "proof_image_url": approval_request.proof_image_url,
+        "status": approval_request.status,
+        "approver_user_id": approval_request.approver_user_id,
+        "approved_at": approval_request.approved_at,
+        "created_at": approval_request.created_at,
+        "updated_at": approval_request.updated_at,
+    }
+    
+    return PenaltyApprovalRequestResponse(**response_data)
 
 @router.get("/{plan_id}/penalty-approval-status/{penalty_user_id}", response_model=PenaltyApprovalStatus)
 async def get_penalty_approval_status(

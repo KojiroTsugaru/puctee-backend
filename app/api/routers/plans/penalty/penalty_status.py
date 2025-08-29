@@ -60,8 +60,7 @@ async def get_my_penalty_status(
         plan_id=plan_id,
         user_id=user.id,
         penalty_status=participant.penalty_status,
-        penalty_completed_at=participant.penalty_completed_at,
-        updated_at=datetime.now(timezone.utc)
+        penalty_completed_at=participant.penalty_completed_at
     )
 
 @router.put("/penalty-status", response_model=PenaltyStatusResponse)
@@ -125,7 +124,7 @@ async def update_penalty_status_endpoint(
     # If status is being set to 'completed', record the timestamp
     if penalty_update.penalty_status == 'completed':
         update_values['penalty_completed_at'] = datetime.now(timezone.utc)
-    elif penalty_update.penalty_status in ['none', 'pending', 'exempted']:
+    elif penalty_update.penalty_status in ['none', 'required', 'pendingApproval', 'exempted']:
         # Clear penalty_completed_at for other statuses
         update_values['penalty_completed_at'] = None
     
@@ -158,6 +157,5 @@ async def update_penalty_status_endpoint(
         plan_id=penalty_update.plan_id,
         user_id=penalty_update.user_id,
         penalty_status=updated_participant.penalty_status,
-        penalty_completed_at=updated_participant.penalty_completed_at,
-        updated_at=datetime.now(timezone.utc)
+        penalty_completed_at=updated_participant.penalty_completed_at
     )

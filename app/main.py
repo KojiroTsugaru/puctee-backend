@@ -47,3 +47,7 @@ app.include_router(invite.router, tags=["invite"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to Puctee API"}
+
+@app.get("/health")
+def health():
+    return {"ok": True}

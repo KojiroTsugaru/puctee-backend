@@ -18,7 +18,7 @@ plan_participants = Table(
     Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
     Column('arrival_status', String, nullable=True),  # on_time, late, not_arrived
     Column('checked_at', DateTime(timezone=True), nullable=True),  # Time when arrival was confirmed
-    Column('penalty_status', String, default='none'),  # none, pending, completed, exempted
+    Column('penalty_status', String, default='none'),  # none, required, pendingApproval, completed, exempted
     Column('penalty_completed_at', DateTime(timezone=True), nullable=True)  # When penalty was completed
 )
 
@@ -114,7 +114,6 @@ class Penalty(Base):
     plan_id = Column(Integer, ForeignKey("plans.id"))
     user_id = Column(Integer, ForeignKey("users.id"))   
     content=Column(String, nullable=False)
-    status = Column(String, default="pending")  # pending, paid, cancelled
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -181,7 +181,7 @@ async def update_penalty_status(
     if is_arrived:
         penalty_status = 'none'  # No penalty needed - user arrived successfully
     else:
-        penalty_status = 'pending'  # Penalty pending - user failed to arrive
+        penalty_status = 'required'  # Penalty required - user failed to arrive
     
     # Update penalty status in plan_participants table
     stmt = (

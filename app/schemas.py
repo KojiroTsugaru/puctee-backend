@@ -74,22 +74,14 @@ class FriendInvite(FriendInviteBase):
 # Penalty schemas
 class PenaltyBase(BaseModel):
     content: str
-    status: str = "pending"
 
 class PenaltyCreate(PenaltyBase):
-    content: str
-    status: str = "pending"
-
-class PenaltyUpdate(BaseModel):
-    status: str
-    proof_url: Optional[str] = None
+    pass
 
 class Penalty(PenaltyBase):
     id: int
     plan_id: int
     user_id: int
-    status: str = "pending"
-    proof_url: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -203,14 +195,13 @@ class NotificationResponse(NotificationBase):
 class PenaltyStatusUpdate(BaseModel):
     plan_id: int
     user_id: int
-    penalty_status: Literal['none', 'pending', 'completed', 'exempted']
+    penalty_status: Literal['none', 'required', 'pendingApproval', 'completed', 'exempted']
 
 class PenaltyStatusResponse(BaseModel):
     plan_id: int
     user_id: int
     penalty_status: str
     penalty_completed_at: Optional[datetime] = None
-    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -224,6 +215,7 @@ class PenaltyApprovalRequestResponse(BaseModel):
     id: int
     plan_id: int
     penalty_user_id: int
+    penalty_name: Optional[str] = None
     comment: Optional[str] = None
     proof_image_url: Optional[str] = None
     status: str
