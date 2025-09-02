@@ -1,23 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from mangum import Mangum
-from app.api.routers import auth, plans, users, friends, notifications, invite
+from app.api.routers import auth, users, friends, notifications, invite
 from app.api.routers.plans import router as plans_router
 from app.api.routers.plans.location_share_ws import router as websocket_router
-from app.services.scheduler import start_scheduler, stop_scheduler
-import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-    # Start plan scheduler
-    start_scheduler()
-
     yield  # API server is now running
-
-    # Stop plan scheduler
-    stop_scheduler()
 
 app = FastAPI(
     title="Puctee API",

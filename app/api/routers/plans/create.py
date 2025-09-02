@@ -11,16 +11,8 @@ from app.db.session import get_db
 from app.models import User, Plan, Location, Penalty, PlanInvite
 from app.schemas import Plan as PlanSchema, PlanCreate
 from app.services.push_notification import send_plan_invite_notification
-from app.services.scheduler import schedule_silent_for_plan
+from app.services.scheduler.eventbridge_scheduler import schedule_silent_for_plan
 
-# Configure logger to show in console
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()  # This ensures logs appear in console
-    ]
-)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -93,7 +85,6 @@ async def create_plan(
                     plan_id=db_plan.id,
                     user_id=user.id,
                     content=pen.content,
-                    status=pen.status,
                 ))
                 log_operation("penalty_added", {"content": pen.content}, user.id, db_plan.id)
 
@@ -136,8 +127,17 @@ async def create_plan(
             # start_time はtz付きUTCで扱う（無ければUTC化）
             start_utc = plan.start_time.astimezone(timezone.utc)
             logger.info(f"Plan {db_plan.id} start_time: {plan.start_time}, UTC: {start_utc}")
-            await schedule_silent_for_plan(db_plan.id, start_utc)
-            logger.info(f"Silent notification scheduled for plan {db_plan.id}")
+            
+            # Schedule silent notification
+            try:
+                success = await schedule_silent_for_plan(db_plan.id, start_utc)
+                if success:
+                    logger.info(f"Silent notification scheduled for plan {db_plan.id}")
+                else:
+                    logger.error(f"Failed to schedule silent notification for plan {db_plan.id}")
+            except Exception as e:
+                logger.error(f"Error scheduling silent notification for plan {db_plan.id}: {str(e)}", exc_info=True)
+            
             return full_plan
 
         except Exception as e:

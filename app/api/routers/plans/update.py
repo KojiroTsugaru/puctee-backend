@@ -6,7 +6,7 @@ from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import Plan, User, Location, Penalty
 from app.schemas import PlanUpdate, Plan as PlanSchema
-from app.services.scheduler import schedule_silent_for_plan
+from app.services.scheduler.eventbridge_scheduler import schedule_silent_for_plan
 
 router = APIRouter()
 

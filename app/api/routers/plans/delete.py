@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import User, Plan
-from app.services.scheduler import cancel_silent_for_plan
+from app.services.scheduler.eventbridge_scheduler import cancel_silent_for_plan
 
 router = APIRouter()
 

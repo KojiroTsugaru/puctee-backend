@@ -119,55 +119,69 @@ class notificationClient:
         self,
         device_token: str,
         data: dict = None,
-        category: str = None
+        category: str = None,
+        max_retries: int = 3
     ) -> bool:
         """
-        Send silent push notification
+        Send silent push notification with retry logic
         
         Args:
             device_token (str): Device token
             data (dict, optional): Additional data
             category (str, optional): Notification category identifier
+            max_retries (int): Maximum number of retry attempts
             
         Returns:
             bool: True on successful send, False on failure
         """
-        try:
-            if not self.client:
-                self._initialize_client()
+        for attempt in range(max_retries + 1):
+            try:
+                if not self.client or attempt > 0:
+                    logger.info(f"[APNS_RETRY] Initializing APNs client (attempt {attempt + 1}/{max_retries + 1}) for device {device_token}")
+                    self._initialize_client()
 
-            logger.info(f"Sending silent notification to device token: {device_token}")
+                logger.info(f"[APNS_RETRY] Sending silent notification to device token: {device_token} (attempt {attempt + 1}/{max_retries + 1})")
 
-            # Create silent notification request
-            aps_payload = {
-                "content-available": 1
-            }
-            
-            # Add category to aps if provided
-            if category:
-                aps_payload["category"] = category
-            
-            request = NotificationRequest(
-                device_token=device_token,
-                message={
-                    "aps": aps_payload,
-                    **(data or {})
-                },
-                push_type=PushType.BACKGROUND,
-                priority=5
-            )
+                # Create silent notification request
+                aps_payload = {
+                    "content-available": 1
+                }
+                
+                # Add category to aps if provided
+                if category:
+                    aps_payload["category"] = category
+                
+                request = NotificationRequest(
+                    device_token=device_token,
+                    message={
+                        "aps": aps_payload,
+                        **(data or {})
+                    },
+                    push_type=PushType.BACKGROUND,
+                    priority=5
+                )
 
-            # Send notification
-            logger.info("Sending silent notification request...")
-            response = await self.client.send_notification(request)
-            
-            if response.is_successful:
-                logger.info(f"Successfully sent silent notification to {device_token}")
-                return True
-            else:
-                logger.error(f"Failed to send silent notification: {response.description}")
-                return False
+                # Send notification
+                logger.info(f"[APNS_RETRY] Sending silent notification request (attempt {attempt + 1})...")
+                response = await self.client.send_notification(request)
+                
+                if response.is_successful:
+                    logger.info(f"[APNS_RETRY] ✅ Successfully sent silent notification to {device_token} on attempt {attempt + 1}")
+                    return True
+                else:
+                    logger.error(f"[APNS_RETRY] ❌ Failed to send silent notification (attempt {attempt + 1}): {response.description}")
+                    if attempt == max_retries:
+                        logger.error(f"[APNS_RETRY] 🚫 All {max_retries + 1} attempts failed for device {device_token}")
+                        return False
 
-        except Exception as e:
-            logger.error(f"Error sending silent push notification: {str(e)}", exc_info=True)
-            return False
+            except Exception as e:
+                logger.error(f"[APNS_RETRY] ❌ Error sending silent push notification (attempt {attempt + 1}/{max_retries + 1}): {str(e)}")
+                if attempt == max_retries:
+                    logger.error(f"[APNS_RETRY] 🚫 All {max_retries + 1} attempts failed for device {device_token}")
+                    return False
+                else:
+                    logger.info(f"[APNS_RETRY] 🔄 Retrying in next attempt...")
+                    # Reset client for retry
+                    self.client = None
+        
+        return False
