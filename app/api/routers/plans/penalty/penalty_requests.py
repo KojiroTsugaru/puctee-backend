@@ -161,6 +161,173 @@ async def send_penalty_approval_request(
     print(f"Penalty approval requested by {requesting_user.username} for plan {plan.id}")
     return approval_request
 
+@router.post("/{plan_id}/penalty-approval-request-solo", response_model=PenaltyApprovalRequestResponse)
+async def send_penalty_approval_request_solo(
+    plan_id: int,
+    request_data: PenaltyApprovalRequestCreate,
+    current_user: str = Depends(get_current_username),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send penalty approval request and auto-approve if plan has only 1 participant"""
+    # Get current user (requesting approval)
+    result = await db.execute(
+        select(User).where(User.username == current_user)
+    )
+    requesting_user = result.scalar_one_or_none()
+    if not requesting_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Verify the plan exists and user is a participant
+    result = await db.execute(
+        select(Plan)
+        .options(selectinload(Plan.participants))
+        .where(Plan.id == plan_id)
+    )
+    plan = result.scalar_one_or_none()
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plan not found"
+        )
+    
+    # Check if requesting user is a participant
+    if requesting_user not in plan.participants:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only plan participants can request penalty approval"
+        )
+    
+    # Check if requesting user has penalty_status 'required'
+    result = await db.execute(
+        select(plan_participants).where(
+            plan_participants.c.plan_id == plan_id,
+            plan_participants.c.user_id == requesting_user.id
+        )
+    )
+    requesting_participant = result.first()
+    if not requesting_participant or requesting_participant.penalty_status != 'required':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only request approval for penalties with 'required' status"
+        )
+    
+    # Check if there's already a pending approval request
+    result = await db.execute(
+        select(PenaltyApprovalRequest).where(
+            PenaltyApprovalRequest.plan_id == plan_id,
+            PenaltyApprovalRequest.penalty_user_id == requesting_user.id,
+            PenaltyApprovalRequest.status == 'pending'
+        )
+    )
+    existing_request = result.scalar_one_or_none()
+    if existing_request:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="There is already a pending approval request for this user"
+        )
+    
+    # Check number of participants
+    participant_count = len(plan.participants)
+    
+    # Create penalty approval request
+    approval_request = PenaltyApprovalRequest(
+        plan_id=plan_id,
+        penalty_user_id=requesting_user.id,
+        comment=request_data.comment,
+        proof_image_url=None  # Will be set after S3 upload if image data provided
+    )
+    
+    # If only 1 participant, auto-approve immediately
+    if participant_count == 1:
+        approval_request.status = 'approved'
+        approval_request.approver_user_id = requesting_user.id  # Self-approved
+        approval_request.approved_at = datetime.now(timezone.utc)
+        
+        # Update penalty status to 'completed' immediately
+        penalty_status = 'completed'
+        penalty_completed_at = datetime.now(timezone.utc)
+        
+        print(f"Auto-approving penalty for single participant {requesting_user.username} in plan {plan.id}")
+    else:
+        # Multiple participants - keep as pending and update to pendingApproval
+        penalty_status = 'pendingApproval'
+        penalty_completed_at = None
+        
+        print(f"Penalty approval requested by {requesting_user.username} for plan {plan.id} with {participant_count} participants")
+    
+    # Update penalty status
+    stmt = (
+        update(plan_participants)
+        .where(
+            plan_participants.c.plan_id == plan_id,
+            plan_participants.c.user_id == requesting_user.id
+        )
+        .values(
+            penalty_status=penalty_status,
+            penalty_completed_at=penalty_completed_at
+        )
+    )
+    await db.execute(stmt)
+    
+    db.add(approval_request)
+    await db.commit()
+    await db.refresh(approval_request)
+    
+    # Handle proof image data upload to S3 if provided
+    if request_data.proof_image_data:
+        try:
+            # Decode base64 image data if it's base64 encoded
+            if isinstance(request_data.proof_image_data, str):
+                image_data = base64.b64decode(request_data.proof_image_data)
+            else:
+                image_data = request_data.proof_image_data
+            
+            # Upload to S3
+            proof_image_url = await upload_proof_image_to_s3(
+                image_data=image_data,
+                user_id=requesting_user.id,
+                request_id=approval_request.id
+            )
+            
+            # Update approval request with S3 URL
+            approval_request.proof_image_url = proof_image_url
+            await db.commit()
+            await db.refresh(approval_request)
+            
+        except Exception as e:
+            print(f"Failed to upload proof image: {str(e)}")
+            # Continue without failing the entire request
+    
+    # Send notifications only if multiple participants and not auto-approved
+    if participant_count > 1:
+        # Get all participants except the requesting user
+        other_participants = [p for p in plan.participants if p.id != requesting_user.id]
+        
+        # Send push notifications to all other participants
+        notification_count = 0
+        
+        for participant in other_participants:
+            if participant.push_token:
+                try:
+                    success = await send_penalty_approval_request_notification(
+                        device_token=participant.push_token,
+                        requesting_user_name=requesting_user.display_name,
+                        request_id=approval_request.id,
+                        plan_title=plan.title
+                    )
+                    if success:
+                        notification_count += 1
+                        print(f"Penalty approval notification sent to {participant.username}")
+                    else:
+                        print(f"Failed to send notification to {participant.username}")
+                except Exception as e:
+                    print(f"Failed to send notification to {participant.username}: {str(e)}")
+    
+    return approval_request
+
 @router.post("/{plan_id}/penalty-approval/{request_id}", response_model=PenaltyApprovalRequestResponse)
 async def approve_penalty(
     plan_id: int,
