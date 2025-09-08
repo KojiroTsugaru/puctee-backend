@@ -281,3 +281,18 @@ class LocationUpdateRequest(BaseModel):
     latitude: float
     longitude: float
     name: Optional[str] = None
+
+# Location Validation Schemas
+class LocationShareValidationRequest(BaseModel):
+    plan_id: int
+    user_id: int
+
+class UserInfo(BaseModel):
+    user_id: int
+    display_name: str
+    profile_image_url: Optional[str] = None
+
+class LocationShareValidationResponse(BaseModel):
+    valid: bool
+    user_info: Optional[UserInfo] = None
+    error: Optional[str] = None
