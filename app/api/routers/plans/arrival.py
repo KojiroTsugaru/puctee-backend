@@ -81,7 +81,7 @@ async def check_arrival(
         await update_penalty_status(user, plan, is_arrived, db)
         
         # Update statistics
-        await update_trust_stats(user, plan, is_arrived, db)
+        prev_trust_level, new_trust_level = await update_trust_stats(user, plan, is_arrived, db)
         
         # Send push notification to the user who checked arrival
         if user.push_token:
@@ -89,7 +89,9 @@ async def check_arrival(
                 await send_arrival_check_notification(
                     plan=plan,
                     device_token=user.push_token,
-                    is_arrived=is_arrived
+                    is_arrived=is_arrived,
+                    prev_trust_level=prev_trust_level,
+                    new_trust_level=new_trust_level
                 )
             except Exception as e:
                 # Log error but don't fail the entire request
@@ -116,7 +118,7 @@ async def update_trust_stats(
     plan: Plan,
     is_arrived: bool,
     db: AsyncSession
-) -> None:
+) -> tuple[float, float]:
     """
     Update user's trust statistics
     
@@ -125,6 +127,9 @@ async def update_trust_stats(
         plan: Plan object
         is_arrived: Whether arrived or not
         db: Database session
+        
+    Returns:
+        tuple[dict, float]: (previous_trust_stats, updated_trust_level)
     """
     # Get user's trust statistics
     result = await db.execute(
@@ -137,6 +142,8 @@ async def update_trust_stats(
             detail="User trust stats not found"
         )
 
+    prev_trust_level = trust_stats.trust_level
+    
     # Update statistics based on arrival status
     if is_arrived:
         plan.arrival_status = "on_time"
@@ -161,6 +168,9 @@ async def update_trust_stats(
     
     # Ensure trust_stats changes are tracked by the session
     db.add(trust_stats)
+    
+    # Return previous stats and updated trust level
+    return prev_trust_level, trust_stats.trust_level
 
 async def update_penalty_status(
     user: User,

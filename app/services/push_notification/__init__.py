@@ -74,7 +74,13 @@ async def send_silent_wakeup_arrival_notification(device_token: str, plan_id: in
     )
     
 # Send arrival check notification
-async def send_arrival_check_notification(plan: Plan, device_token: str, is_arrived: bool) -> bool:
+async def send_arrival_check_notification(
+    plan: Plan, 
+    device_token: str,
+    is_arrived: bool,
+    prev_trust_level: float,
+    new_trust_level: float
+    ) -> bool:
     """
     Send arrival check notification
     
@@ -102,6 +108,8 @@ async def send_arrival_check_notification(plan: Plan, device_token: str, is_arri
         data={
             "plan_id": plan.id,
             "is_arrived": is_arrived,
+            "prev_trust_level": prev_trust_level,
+            "new_trust_level": new_trust_level
         }
     )
 
