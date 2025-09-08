@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from app.core.auth import get_current_user
+from app.core.auth import get_current_username
 from app.db.session import get_db
 from app.models import Plan, User
 from app.schemas import LocationShareValidationRequest, LocationShareValidationResponse, UserInfo
@@ -14,7 +14,7 @@ router = APIRouter()
 async def validate_location_share_access(
     request: LocationShareValidationRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_username: str = Depends(get_current_username)
 ):
     """
     Supabase WebSocket接続前の検証エンドポイント
@@ -31,7 +31,7 @@ async def validate_location_share_access(
             )
 
         # ユーザーの存在確認
-        user_result = await db.execute(select(User).where(User.id == request.user_id))
+        user_result = await db.execute(select(User).where(User.username == current_username))
         user = user_result.scalar_one_or_none()
         if not user:
             return LocationShareValidationResponse(
@@ -42,7 +42,7 @@ async def validate_location_share_access(
         # プラン参加者かどうかの確認
         participation_check = select(Plan.id).where(
             Plan.id == request.plan_id,
-            Plan.participants.any(User.id == request.user_id)
+            Plan.participants.any(User.username == current_username)
         )
         participation_result = await db.execute(participation_check)
         is_participant = participation_result.scalar_one_or_none() is not None
@@ -73,7 +73,7 @@ async def validate_location_share_access(
 async def get_plan_participants(
     plan_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_username: str = Depends(get_current_username)
 ):
     """
     プランの参加者一覧を取得（位置情報共有用）
@@ -91,7 +91,7 @@ async def get_plan_participants(
             raise HTTPException(status_code=404, detail="Plan not found")
 
         # 現在のユーザーが参加者かどうか確認
-        user_is_participant = any(p.id == current_user.id for p in plan.participants)
+        user_is_participant = any(p.username == current_username for p in plan.participants)
         if not user_is_participant:
             raise HTTPException(status_code=403, detail="Not a participant of this plan")
 
